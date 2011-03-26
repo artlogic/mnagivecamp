@@ -119,9 +119,10 @@ function uc_donate_form_submit($form, &$form_state) {
         $form_values = array(
           'nid' => $nid,
           'qty' => 1,
-          'donate_amount' => $value['donate_amount']
-        );
-        uc_cart_add_item($nid, 1, module_invoke_all('add_to_cart_data', $form_values));
+          'cost' => 0.00,
+          'donate_amount' => $value['donate_amount'],
+        ); 
+        uc_cart_add_item($nid, 1, module_invoke_all('uc_add_to_cart_data', $form_values));
       }
     }
   }

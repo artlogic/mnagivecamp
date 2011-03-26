@@ -162,7 +162,7 @@ function uc_donate_form_alter(&$form, $form_state, $form_id) {
 /**
  * Implements hook_checkout_pane().
  */
-function uc_donate_checkout_pane() {
+function uc_donate_uc_checkout_pane() {
   if (module_exists('nodequeue')) {
     $panes[] = array(
         'id' => 'donate',
@@ -244,7 +244,7 @@ function uc_donate_cart_checkout_form_validate($form_id, $form_values) {
             $form_values[$key] = isset($value['#value']) ? $value['#value'] : $value['#default_value'];
           }
         }
-        $node->data = module_invoke_all('add_to_cart_data', $form_values);
+        $node->data = module_invoke_all('uc_add_to_cart_data', $form_values);
         $node->data['amount'] = $amount;
         $node->price = $amount;
         $node->qty = 1;

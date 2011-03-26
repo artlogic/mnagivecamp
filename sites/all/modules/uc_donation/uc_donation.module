@@ -54,11 +54,11 @@ function uc_donation_permission() {
   foreach (node_type_get_types () as $type) {
     if ($type->module == 'uc_donation') {
       $name = check_plain($type->type);
-      $perms[] = 'create ' . $name . ' products';
-      $perms[] = 'edit own ' . $name . ' products';
-      $perms[] = 'edit all ' . $name . ' products';
-      $perms[] = 'delete own ' . $name . ' products';
-      $perms[] = 'delete all ' . $name . ' products';
+      $perms['create ' . $name . ' products'] = array('title' => 'create ' . $name . ' products');
+      $perms['edit own ' . $name . ' products'] = array('title' => 'edit own ' . $name . ' products');
+      $perms['edit all ' . $name . ' products'] = array('title' => 'edit all ' . $name . ' products');
+      $perms['delete own ' . $name . ' products'] = array('title' => 'delete own ' . $name . ' products');
+      $perms['delete all ' . $name . ' products'] = array('title' => 'delete all ' . $name . ' products');
     }
   }
   return $perms;
@@ -79,7 +79,7 @@ function uc_donation_theme() {
  * Implements hook_node_access().
  */
 function uc_donation_node_access($node, $op, $account) {
-  return uc_product_access($op, $node, $account);
+  return uc_product_node_access($op, $node, $account); 
 }
 
 /**
@@ -194,12 +194,7 @@ function uc_donation_update($node) {
  * Implements hook_load().
  */
 function uc_donation_load($nodes) {
-  foreach ($nodes as $nid => &$node) {
-    $node_additions = uc_product_load($node);
-    foreach ($node_additions as $property => &$value) {
-      $node->$property = $value;
-    }
-  }
+  uc_product_load($nodes);
 }
 
 /**
@@ -285,14 +280,14 @@ function uc_donation_cart_view_validate($form, &$form_state) {
 /**
  * Implements hook_product_types().
  */
-function uc_donation_product_types() {
+function uc_donation_uc_product_types() {
   return array_keys(uc_donation_node_info());
 }
 
 /**
  * Implements hook_cart_item().
  */
-function uc_donation_cart_item($op, &$item) {
+function uc_donation_uc_cart_item($op, &$item) {
   switch ($op) {
     case 'load':
       $node = node_load($item->nid);
@@ -309,8 +304,8 @@ function uc_donation_cart_item($op, &$item) {
 /**
  * Implements hook_cart_display().
  */
-function uc_donation_cart_display($item) {
-  $element = uc_product_cart_display($item);
+function uc_donation_uc_cart_display($item) {
+  $element = uc_product_uc_cart_display($item);
   $element['module']['#value'] = 'uc_donation';
   $element['qty'] = array(
       '#type' => 'hidden',
@@ -333,7 +328,7 @@ function uc_donation_cart_display($item) {
  *
  * Removes donation item from cart if it is being updated with a different amount.
  */
-function uc_donation_add_to_cart($nid, $qty, $data) {
+function uc_donation_uc_add_to_cart($nid, $qty, $data) {
   if (variable_get('update_cart_item_donation', TRUE)) {
     $node = node_load($nid);
     if ($node->type == 'donation') {
@@ -355,7 +350,7 @@ function uc_donation_add_to_cart($nid, $qty, $data) {
 /**
  * Update information about a specific item in current cart.
  */
-function uc_donation_update_cart_item($nid, $data = array(), $qty, $cid = NULL) {
+function uc_donation_uc_update_cart_item($nid, $data = array(), $qty, $cid = NULL) {
   if (!$nid) {
     return NULL;
   }
@@ -390,7 +385,7 @@ function uc_donation_update_cart_item($nid, $data = array(), $qty, $cid = NULL) 
 /**
  * Implements hook_add_to_cart_data().
  */
-function uc_donation_add_to_cart_data($form_values) {
+function uc_donation_uc_add_to_cart_data($form_values) {
   return array('donate_amount' => $form_values['donate_amount']);
 }
 
@@ -432,7 +427,7 @@ function theme_uc_donation_add_to_cart($variables) {
   $node = $variables['node'];
   $teaser = $variables['teaser'];
   $page = $variables['page'];
-  $output = theme_uc_product_add_to_cart($node, $teaser, $page);
+  $output = theme('uc_product_add_to_cart', array('node' => $node, 'teaser' => $teaser, 'page' => $page));
   return $output;
 }
 
