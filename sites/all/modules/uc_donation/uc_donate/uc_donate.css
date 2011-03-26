@@ -1,0 +1,64 @@
+
+/* Donate group */
+div.donate-group {
+  background: #FFFFFF url(/themes/garland/images/gradient-inner.png) repeat-x scroll 0 0;
+  border: 1px solid #D9EAF5;
+  margin: 1em 0;
+  padding: 12px;
+}
+div.donate-group h3 span {
+  font-size: 75%;
+  font-style: italic;
+}
+
+/* Donate donation item */
+div.donate-item {
+  margin: 13px;
+}
+div.donate-group div.donate-item {
+  margin: 0px;
+}
+div.donate-item.node-unpublished,
+div.donate-group div.donate-item.node-unpublished {
+  border: 1px solid #EEE4F4;
+  margin-top: 5px;
+}
+div.donate-image {
+  float: left;
+  padding-left: 10px;
+  width: 100px;
+  position: relative;
+}
+div.donate-info {
+  float: left;
+  width: 100%;
+  margin: 0px -125px 0px 0px;
+}
+div.donate-item.image div.donate-info {
+  margin-left: -110px;
+}
+div.donate-info-squeeze {
+  padding: 10px;
+  position: relative;
+  margin: 0px 125px 0px 0px;
+}
+div.donate-item.image div.donate-info-squeeze {
+  margin-left: 110px;
+}
+div.donate-amount {
+  float: left;
+  width: 125px;
+  position: relative;
+}
+
+/* Donate total */
+#donate-total {
+  padding-right: 15px;
+  text-align: right;
+}
+
+/* Donate buttons */
+#donate-buttons {
+  clear: both;
+  float: right;
+}

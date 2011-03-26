@@ -1,0 +1,24 @@
+<?php
+
+/**
+ * @file
+ * Database installation, uninstallation, and updates for the donation module.
+ */
+
+/**
+ * Implements hook_install().
+ */
+function uc_donation_install() {
+
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function uc_donation_uninstall() {
+  // TODO Please convert this statement to the D7 database API syntax.
+  $variables = db_query("SELECT name FROM {variable} WHERE name LIKE 'uc_donation%%'");
+  while ($variable = db_fetch_object($variables)) {
+    variable_del($variable->name);
+  }
+}

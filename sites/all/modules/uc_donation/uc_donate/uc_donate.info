@@ -1,0 +1,10 @@
+name = "Donate"
+description = "Provides a page with donation products."
+dependencies[] = uc_donation
+package = Ubercart - extra
+core = 7.x
+
+files[] = uc_donate.admin.inc
+files[] = uc_donate.install
+files[] = uc_donate.module
+files[] = uc_donate.page.inc
