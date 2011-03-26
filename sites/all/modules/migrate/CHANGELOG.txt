@@ -1,0 +1,109 @@
+
+Migrate 2.0
+===========
+No changes since RC3.
+
+Migrate 2.0 Release Candidate 3
+===============================
+
+Features and enhancements
+  Added JSON source plugin.
+
+Bug fixes
+- #867940 - Prevent overwriting of migrated files with common basenames.
+- #1072170 - Allow revision setting to be overridden.
+- #1073770 - Quietly skip missing files in MigrateFileFieldHandler.
+- #1079416 - postRollback called outside of rollback operation.
+- #1070894 - Apply tokens when saving files.
+- #1067918 - Static cache of migrations messes up simpletests.
+- #1053798 - Message meant for debug not marked 'debug'.
+- #1063926 - prepareRow() call missing from MigrateSourceList.
+- #1062200 - Validate arguments for getFieldLanguage().
+- #1061284 - Appropriately translate watchdog severities to migrate severities.
+
+Migrate 2.0 Release Candidate 2
+===============================
+
+Bug fixes
+- migrate_example error when auto_nodetitle module not present.
+- #1053798 - Missing 'debug' on showMessage.
+
+Migrate 2.0 Release Candidate 1
+===============================
+
+Features and enhancements
+- #919108 - Add deleteDestination() for maps; cache migration list.
+- #1005090 - Support multiple values for file fields.
+- #996086 - Add prepareRollback and completeRollback methods for entities.
+- #1039882 - Pass client migration to stub creation. Note that $migration->values
+  (the destination object being built) is now $migration->destinationValues - any
+  migrations referencing this member will need to change.
+- #946350 - Accept arrays in sourceMigration();
+Let a node migration set node_revisions.uid. That's the 'last edited by' user
+
+Bug fixes
+- #1053798 - Consistent use of error codes.
+- #1053526 - Machine names in drush commands now case-insensitive.
+- #914440 - Enhance multilingual support. 
+- #1014648 - Defaulting of file field subfields.
+- #1037872 - Make sure is_new is off for previously migrated content.
+- #919706 - Fix drush migrate-descriptions command.
+- #1027468 - Limit map/message table name lengths.
+- #1045646 - Handle PHP memory_limit of -1.
+- #1050348 - Check map table existence in correct DB.
+- #1028824 - Errors during registry rebuild trigger fatal error.
+Fix highwater handling to deal with duplicate values.
+- #998604 - Fixed dedupe.
+- #998586 - Improved feedback for disabled migrations.
+- #972382 - Fix MigrateDestinationTableCopy.
+- #962120 - Support idlist on rollback.
+- #1017256 - Document case-sensitivity in beer.inc.
+- #1013844 - Better error handling in getInstance().
+- #1008228 - migrate_example broken by list changes in D7 RC3.
+
+Migrate 2.0 Beta 3
+==================
+
+Features and enhancements
+
+- #989200 - Support "dynamic" migrations. Changes to be aware of:
+  All modules implementing migration classes must now implement hook_migrate_api()
+    (see migrate_migrate_api() for an example).
+  Dependencies and sourceMigrations must now be expressed in terms of 
+    machine name rather than class name.
+  MigrationBase::getInstance now takes a machine name rather than a class name. 
+  Migration class names are no longer required to end in 'Migration'.
+- #992898 - Pass options to source and destination constructors as arrays.
+File destinations (i.e., migrating directly to the file_managed table, with
+  option copying of the files themselves) are now supported.
+Allow migration of comment enable/disable.
+Check max_execution_time as well as memory_limit, for graceful exit when
+  max_execution_time is in play.
+Add dedupe() method for a field mapping.
+Apply MigrateBase::timestamp() to comment created/changed
+
+Bug fixes
+
+- #1006272 - Remove lengths on int fields in schema (breaks Postgres)
+- #1005030 - Replace eval() with proper call_user_func().
+- #1005360 - Skip .test files in registry scan
+- #1004268 - Don't munge date separators
+- prepareRow() hook skips current row only if boolean FALSE is returned.
+- #989622 - Fix undefined variable in MigrateDestinationNode::import().
+- #984294 - Make migrate dashbard a local task.
+needs_update => needs-update to match drush conventions.
+- #959400 - Better way to get vid for vocabulary.
+- #984336 - Additional fields and vocabularies not reported on migration info page
+- #990960 - Initialize fields array for profiles
+- #993684 - hook_requirements should always return array.
+- #983968 - Bogus settings of ->uid
+
+Migrate 2.0 Beta 2
+==================
+Bug fixes
+- #984294 - Migration info pages are blank
+
+Migrate 2.0 Beta 1
+==================
+Version 2 of the Migrate module is an entirely new implementation - it is 
+pointless to list changes since Migrate 1.
