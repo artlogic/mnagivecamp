@@ -1,0 +1,117 @@
+<?php
+
+/**
+ * @file
+ * WordPress migration module installation
+ */
+
+function wordpress_migrate_schema() {
+  $schema = array();
+  $schema['wordpress_migrate'] = wordpress_migrate_schema_wordpress();
+  $schema['wordpress_migrate_attachment'] = wordpress_migrate_schema_attachment();
+  return $schema;
+}
+
+function wordpress_migrate_schema_wordpress() {
+  return array(
+    'description' => 'Mapping of machine name to filename for WordPress migrations',
+    'fields' => array(
+      'filename' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'description' => 'Filename of XML imported by this migration',
+      ),
+      'title' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'description' => 'Blog title (used to seed machine name)',
+      ),
+      'blog_url' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'description' => 'Original blog URL',
+      ),
+      'uid' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => "User ID of the account initiating the import",
+      ),
+    ),
+    'primary key' => array('filename'),
+  );
+}
+
+function wordpress_migrate_schema_attachment() {
+  return array(
+    'description' => 'Map original attachment URL to Drupal URI',
+    'fields' => array(
+      'filename' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'description' => 'Filename of XML imported by this migration',
+      ),
+      'original_url' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'description' => 'URL of attachment on WordPress',
+      ),
+      'new_uri' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'description' => 'URI of attachment on Drupal',
+      ),
+    ),
+    'primary key' => array('filename', 'original_url'),
+  );
+}
+
+/**
+ * Add uid field to wordpress_migrate table.
+ */
+function wordpress_migrate_update_7001() {
+  $ret = array();
+  db_add_field('wordpress_migrate', 'uid', array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => "User ID of the account initiating the import",
+      )
+  );
+
+  $ret[] = t('Added uid column to wordpress_migrate table');
+  return $ret;
+}
+
+/**
+ * Add the wordpress_migrate_attachment table.
+ */
+function wordpress_migrate_update_7002() {
+  $ret = array();
+  db_create_table('wordpress_migrate_attachment', wordpress_migrate_schema_attachment());
+  $ret[] = t('Added the wordpress_migrate_attachment table');
+  return $ret;
+}
+
+/**
+ * Add blog_url field to wordpress_migrate table.
+ */
+function wordpress_migrate_update_7003() {
+  $ret = array();
+  db_add_field('wordpress_migrate', 'blog_url', array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'description' => 'Original blog URL',
+      )
+  );
+
+  $ret[] = t('Added blog_url column to wordpress_migrate table');
+  return $ret;
+}
