@@ -475,8 +475,10 @@ h1#site-name {
   padding: 0 1px;
   margin: 0 1px;
 }
-#main-menu-links a {
+#main-menu-links > ul > li > a {
   border-top: 3px solid transparent;
+}
+#main-menu-links a {
   color: #333;
   /*
   background: #ccc;
@@ -499,9 +501,12 @@ h1#site-name {
   border-top-right-radius: 8px;
   */
 }
+#main-menu-links > ul > li > a:hover,
+#main-menu-links > ul > li > a:focus {
+  border-top: 3px solid;
+}
 #main-menu-links a:hover,
 #main-menu-links a:focus {
-  border-top: 3px solid;
   /*
   background: #f6f6f2;
   background: rgba(255, 255, 255, 0.95);

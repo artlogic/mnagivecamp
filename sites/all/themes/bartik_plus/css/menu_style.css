@@ -9,7 +9,7 @@
 
 
 #main-menu .menu ul {
-  border: solid 1px #ddd;
+  border: solid 1px #898989;
   padding: 0;
   position: absolute;
   top: 2.4em;
@@ -31,7 +31,7 @@
 /* Default background color for menu items */
 #main-menu .menu ul li,
 #main-menu .menu ul li a {
-  background: #EEF;
+  background: #c2c2c2;
 }
 /* indicate menu has children with right arrow bg image */
 #main-menu .menu ul li.expanded a {
@@ -44,8 +44,8 @@
 /* hover state for all submenu links */
 #main-menu .menu ul li a:hover,
 #main-menu .menu ul li a:visited:hover {
-  background: #B3B3B3 url('../images/bg-shade-medium.png') repeat-x 0 100%!important;
-  color: #fff!important;
+  background: #636363 !important;/* url('../images/bg-shade-medium.png') repeat-x 0 100%!important;*/
+  color: #e2dcbf !important;
 }
 /* Second level links */
 #main-menu .menu ul li a,
