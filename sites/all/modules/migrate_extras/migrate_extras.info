@@ -1,0 +1,17 @@
+; $Id: migrate_extras.info,v 1.1.6.3 2010/12/22 22:33:24 mikeryan Exp $
+name = Migrate Extras
+description = "Adds migrate module integration with contrib modules and other miscellaneous tweaks."
+core = 7.x
+package=Development
+
+dependencies[] = migrate
+files[] = media.migrate.inc
+files[] = pathauto.migrate.inc
+files[] = rules.migrate.inc
+
+; Information added by drupal.org packaging script on January 1, 1970 - 00:00
+version = "7.x-2.0-rc1"
+core = "7.x"
+project = "migrate_extras"
+datestamp = "1297304859"
+
