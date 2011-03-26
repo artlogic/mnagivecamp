@@ -31,7 +31,7 @@
 /* Default background color for menu items */
 #main-menu .menu ul li,
 #main-menu .menu ul li a {
-  background: #c2c2c2;
+  background: #e1e1e1;
 }
 /* indicate menu has children with right arrow bg image */
 #main-menu .menu ul li.expanded a {
