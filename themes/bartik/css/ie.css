@@ -3,6 +3,9 @@
 .block {
   zoom: 1;
 }
+#main-menu-links a {
+  color: white;
+}
 #password-strength-text {
   margin-top: 0;
 }

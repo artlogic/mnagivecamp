@@ -51,7 +51,10 @@
   <?php print $styles; ?>
   <?php print $scripts; ?>
 </head>
-<body class="<?php print $classes; ?>" <?php print $attributes;?>>
+<!--[if lt IE 7 ]> <body class="no-js ie6 <?php print $classes; ?>" <?php print $attributes;?>> <![endif]-->
+<!--[if IE 7 ]>    <body class="no-js ie7 <?php print $classes; ?>" <?php print $attributes;?>> <![endif]-->
+<!--[if IE 8 ]>    <body class="no-js ie8 <?php print $classes; ?>" <?php print $attributes;?>> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--> <body class="no-js <?php print $classes; ?>" <?php print $attributes;?>> <!--<![endif]-->
   <div id="skip-link">
     <a href="#main-content" class="element-invisible element-focusable"><?php print t('Skip to main content'); ?></a>
   </div>

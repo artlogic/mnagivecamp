@@ -501,6 +501,16 @@ h1#site-name {
   border-top-right-radius: 8px;
   */
 }
+.ie6 #main-menu-links a,
+.ie7 #main-menu-links a,
+.ie8 #main-menu-links a {
+  color: white;
+}
+.ie6 #main-menu-links li.active-trail a,
+.ie7 #main-menu-links li.active-trail a,
+.ie8 #main-menu-links li.active-trail a {
+  color: #333!important;
+}
 #main-menu-links > ul > li > a:hover,
 #main-menu-links > ul > li > a:focus {
   border-top: 3px solid;
@@ -514,7 +524,7 @@ h1#site-name {
 }
 #main-menu-links a:active {
   background: #b3b3b3;
-  background: rgba(255, 255, 255, 1);
+  /*background: rgba(255, 255, 255, 1);*/
 }
 #main-menu-links li a.active {
   border-bottom: none;
@@ -522,7 +532,7 @@ h1#site-name {
 .featured #main-menu-links li a:active,
 .featured #main-menu-links li a.active {
   background: #f0f0f0;
-  background: rgba(240, 240, 240, 1.0);
+  /*background: rgba(240, 240, 240, 1.0);*/
 }
 
 /* --------------- Secondary Menu ------------ */
