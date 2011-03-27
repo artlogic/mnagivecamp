@@ -19,6 +19,7 @@
 }
 /* Hack to keep menus from dropping behind the sidebars */
 #header {
+  background-color: #21733A;
   z-index: 1;
   position: relative;
 }
