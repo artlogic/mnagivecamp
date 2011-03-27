@@ -1,5 +1,0 @@
-
-Ubercart Donation Product 6.x-x.x, 2010-11-08
----------------------------------------------
-#909244 by gjb2048, greenSkin: Fixed insert query not providing values for 
-  every required field.
