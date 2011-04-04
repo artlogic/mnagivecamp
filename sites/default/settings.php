@@ -447,8 +447,8 @@ ini_set('session.cookie_lifetime', 2000000);
 
 $databases['default']['default'] = array(
 'driver' => 'mysql',
-'database' => 'artlogic_mnagive',
-'username' => 'artlogic_mnagive',
+'database' => 'drupal',
+'username' => 'mnagive',
 'password' => 'T6jLiH4O',
 'host' => 'localhost',
 );
