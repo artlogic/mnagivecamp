@@ -199,7 +199,7 @@ table tbody tr th {
 tr td,
 tr th {
   padding: 4px 9px;
-  border: 1px solid #fff;
+  /*border: 1px solid #fff;*/
   text-align: left; /* LTR */
 }
 #footer-wrapper tr td,
