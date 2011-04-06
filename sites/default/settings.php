@@ -448,7 +448,9 @@ ini_set('session.cookie_lifetime', 2000000);
 $databases['default']['default'] = array(
 'driver' => 'mysql',
 'database' => 'drupal',
+#'database' => 'michigan_drupal',
 'username' => 'mnagive',
+#'username' => 'michigan_mnagive',
 'password' => 'T6jLiH4O',
 'host' => 'localhost',
 );
