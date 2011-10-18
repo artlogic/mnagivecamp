@@ -9,7 +9,7 @@
 
 
 #main-menu .menu ul {
-  border: solid 1px #898989;
+  border: solid 1px #57996b;
   padding: 0;
   position: absolute;
   top: 2.4em;
@@ -19,7 +19,7 @@
 }
 /* Hack to keep menus from dropping behind the sidebars */
 #header {
-  background-color: #21733A;
+
   z-index: 1;
   position: relative;
 }
@@ -32,7 +32,8 @@
 /* Default background color for menu items */
 #main-menu .menu ul li,
 #main-menu .menu ul li a {
-  background: #e1e1e1;
+  background: #115B1F;
+  color:#ccc;
 }
 /* indicate menu has children with right arrow bg image */
 #main-menu .menu ul li.expanded a {
@@ -45,16 +46,16 @@
 /* hover state for all submenu links */
 #main-menu .menu ul li a:hover,
 #main-menu .menu ul li a:visited:hover {
-  background: #636363 !important;/* url('../images/bg-shade-medium.png') repeat-x 0 100%!important;*/
-  color: #e2dcbf !important;
+  background: #57996b !important;
+  color: #fff !important;
 }
 /* Second level links */
 #main-menu .menu ul li a,
 #main-menu .menu ul li a:visited,
 #main-menu .menu li.active-trail ul li a,
 #main-menu .menu .sfHover ul li a {
-  border-bottom: solid 1px #eee;
-  color: #555;
+  border-bottom: solid 1px #57996b;
+  color: #ccc;
   display: block;
   font-size: 0.9em;
   font-weight: normal;
@@ -71,7 +72,7 @@
 }
 /* active submenu link */
 #main-menu .menu li.active-trail ul li a.active {
-  color: #000;
+  color: #fff;
 }
 #main-menu .menu ul ul {
   z-index: 1001;

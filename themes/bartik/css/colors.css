@@ -9,7 +9,7 @@ body.overlay {
 .comment .comment-arrow {
   border-color: #ffffff;
 }
-#page,
+
 #main-wrapper,
 #main-menu-links li a.active,
 #main-menu-links li.active-trail a {
@@ -23,9 +23,8 @@ body.overlay {
   border-bottom: 1px solid #ffffff;
 }
 #header {
-  background-color: #48a9e4;
-  background-image: -webkit-gradient(linear, 0% 0%, 0% 100%, from(#0779bf), to(#48a9e4));
-  background-image: -moz-linear-gradient(-90deg, #0779bf, #48a9e4);
+background-color:none!important;
+background-image:none!important;
 }
 a {
   color: #0071B3;

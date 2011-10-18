@@ -1,0 +1,106 @@
+<?php
+
+/**
+ * @file
+ * Installs the Recurring Products module.
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function uc_recurring_product_schema() {
+  $schema = array();
+
+  $schema['uc_recurring_product'] = array(
+    'description' => 'Data for recurring fees attached to products.',
+    'fields' => array(
+      'pfid' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'model' => array(
+        'description' => 'The SKU the recurring fee applies to.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '0',
+      ),
+      'fee_amount' => array(
+        'description' => 'The amount of the recurring fee.',
+        'type' => 'numeric',
+        'precision' => 15,
+        'scale' => 3,
+        'not null' => TRUE,
+        'default' => 0.0,
+      ),
+      'initial_charge' => array(
+        'description' => 'The amount of time between checkout and the first charge.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '0',
+      ),
+      'regular_interval' => array(
+        'description' => 'The amount of time between charges.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '0',
+      ),
+      'number_intervals' => array(
+        'description' => 'The number of times the fee should be charged.',
+        'type' => 'int',
+        'size' => 'small',
+        'unsigned' => FALSE,
+        'not null' => TRUE,
+        'default' => -1,
+      ),
+    ),
+    'primary key' => array('pfid'),
+  );
+
+  return $schema;
+}
+
+/**
+ * Implements hook_install().
+ */
+function uc_recurring_product_install() {
+  // TODO The drupal_(un)install_schema functions are called automatically in D7.
+  // drupal_install_schema('uc_recurring_product')
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function uc_recurring_product_uninstall() {
+  // TODO The drupal_(un)install_schema functions are called automatically in D7.
+  // drupal_uninstall_schema('uc_recurring_product')
+
+  // TODO Please review the conversion of this statement to the D7 database API syntax.
+  /* db_query("DELETE FROM {variable} WHERE name LIKE 'uc_recurring_product_%%'") */
+  db_delete('variable')
+  ->condition('name', 'uc_recurring_product_%%', 'LIKE')
+  ->execute();
+  cache_clear_all('variables', 'cache');
+}
+
+/**
+ * Remove nid field.
+ */
+function uc_recurring_product_update_6000() {
+  $ret = array();
+  db_drop_field();
+  // hook_update_N() no longer returns a $ret array. Instead, return
+  // nothing or a translated string indicating the update ran successfully.
+  // See http://drupal.org/node/224333#update_sql.
+  // hook_update_N() no longer returns a $ret array. Instead, return
+  // nothing or a translated string indicating the update ran successfully.
+  // See http://drupal.org/node/224333#update_sql.
+  // hook_update_N() no longer returns a $ret array. Instead, return
+  // nothing or a translated string indicating the update ran successfully.
+  // See http://drupal.org/node/224333#update_sql.
+  return t('TODO Add a descriptive string here to show in the UI.') /* t('TODO Add a descriptive string here to show in the UI.')  t('TODO Add a descriptive string here to show in the UI.')  $ret   */;
+}
