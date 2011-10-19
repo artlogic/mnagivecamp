@@ -54,4 +54,3 @@ alias for you should set this to "-1" I belive.
 
 Last updated:
 ------------
-$Id: README.txt,v 1.11 2010/01/04 05:22:56 frjo Exp $

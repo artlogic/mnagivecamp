@@ -30,6 +30,16 @@ function file_styles_styles_default_containers() {
 }
 
 /**
+ * Implements hook_styles_default_containers().
+ */
+function file_styles_styles_default_containers_alter(&$styles) {
+  if (module_exists('media')) {
+    $styles['media'] = $styles['file'];
+  }
+  unset($styles['media']['admin']);
+}
+
+/**
  * Implementation of Styles module hook_styles_default_styles().
  */
 function file_styles_styles_default_styles() {
@@ -59,6 +69,15 @@ function file_styles_styles_default_styles() {
       ),
     ),
   );
+}
+
+/**
+ * Implements hook_styles_default_styles().
+ */
+function file_styles_styles_default_styles_alter(&$styles) {
+  if (module_exists('media')) {
+    $styles['media'] = $styles['file'];
+  }
 }
 
 /**
@@ -94,7 +113,7 @@ function file_styles_styles_default_presets() {
         ),
         'unlinked_thumbnail' => array(
           array(
-            'name' => 'image_style',
+            'name' => 'imageStyle',
             'settings' => array(
               'image_style' => 'thumbnail',
             ),
@@ -106,11 +125,11 @@ function file_styles_styles_default_presets() {
         ),
         'linked_thumbnail' => array(
           array(
-            'name' => 'link_to_media',
+            'name' => 'linkToMedia',
             'settings' => array(),
           ),
           array(
-            'name' => 'image_style',
+            'name' => 'imageStyle',
             'settings' => array(
               'image_style' => 'thumbnail',
             ),
@@ -122,11 +141,11 @@ function file_styles_styles_default_presets() {
         ),
         'linked_square_thumbnail' => array(
           array(
-            'name' => 'link_to_media',
+            'name' => 'linkToMedia',
             'settings' => array(),
           ),
           array(
-            'name' => 'image_style',
+            'name' => 'imageStyle',
             'settings' => array(
               'image_style' => 'square_thumbnail',
             ),
@@ -138,7 +157,7 @@ function file_styles_styles_default_presets() {
         ),
         'large' => array(
           array(
-            'name' => 'image_style',
+            'name' => 'imageStyle',
             'settings' => array(
               'image_style' => 'large',
             ),
@@ -150,7 +169,7 @@ function file_styles_styles_default_presets() {
         ),
         'medium' => array(
           array(
-            'name' => 'image_style',
+            'name' => 'imageStyle',
             'settings' => array(
               'image_style' => 'medium',
             ),
@@ -163,9 +182,34 @@ function file_styles_styles_default_presets() {
       ),
     );
   }
+  foreach (image_styles() as $style_name => $style) {
+    if (!isset($containers['image']['presets'][$style_name])) {
+      $containers['image']['presets'][$style_name] = array(
+        array(
+          'name' => 'imageStyle',
+          'settings' => array(
+            'image_style' => $style_name,
+          ),
+        ),
+        array(
+          'name' => 'thumbnail',
+          'settings' => array(),
+        ),
+      );
+    }
+  }
   return array(
     'file' => array(
       'containers' => $containers,
     ),
   );
+}
+
+/**
+ * Implements hook_styles_default_presets().
+ */
+function file_styles_styles_default_presets_alter(&$styles) {
+  if (module_exists('media')) {
+    $styles['media'] = $styles['file'];
+  }
 }

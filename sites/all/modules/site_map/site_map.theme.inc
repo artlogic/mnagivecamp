@@ -1,5 +1,4 @@
 <?php
-// $Id: site_map.theme.inc,v 1.5.2.3 2011/01/05 18:44:35 frjo Exp $
 
 /**
  * @file
@@ -21,24 +20,34 @@ function theme_site_map_rss_legend() {
 }
 
 /**
+ * Preprocesses the variables for theme_site_map_box().
+ */
+function template_preprocess_site_map_box(&$variables) {
+  $variables['attributes']['class'][] = 'site-map-box';
+}
+
+/**
  * Returns HTML for a themed site map box.
  *
  * @param $variables
  *   An associative array containing:
  *   - title: The subject of the box.
  *   - content: The content of the box.
- *   - class:  Optional extra class for the box.
+ *   - attributes:  Optional attributes for the box.
  */
 function theme_site_map_box($variables) {
+  $title = $variables['title'];
+  $content = $variables['content'];
+  $attributes = $variables['attributes'];
+
   $output = '';
-  if (($variables['title'] || $variables['content'])) {
-    $class = $variables['class'] ? 'site-map-box ' . $variables['class'] : 'site-map-box';
-    $output .= '<div class="' . $variables['class'] . '">';
-    if ($variables['title']) {
-      $output .= '<h2 class="title">' . $variables['title'] . '</h2>';
+  if (!empty($title) || !empty($content)) {
+    $output .= '<div' . drupal_attributes($attributes) . '>';
+    if (!empty($title)) {
+      $output .= '<h2 class="title">' . $title . '</h2>';
     }
-    if ($variables['content']) {
-      $output .= '<div class="content">' . $variables['content'] . '</div>';
+    if (!empty($content)) {
+      $output .= '<div class="content">' . $content . '</div>';
     }
     $output .= '</div>';
   }
@@ -114,7 +123,7 @@ function theme_site_map_menu_tree($variables) {
 }
 
 /**
- * This is a one by one clone of the core theme_menu_item() function that allows
+ * This is a one by one clone of the core theme_menu_link() function that allows
  * custom theming of the site map page items.
  *
  * Returns HTML for a menu link and submenu.
@@ -137,7 +146,7 @@ function theme_site_map_menu_link(array $variables) {
 }
 
 /**
- * Process variables for site-map.tpl.php.
+ * Preprocesses the variables for site-map.tpl.php.
  *
  * @see site-map.tpl.php
  */

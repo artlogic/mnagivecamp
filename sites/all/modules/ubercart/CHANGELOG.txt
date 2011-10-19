@@ -1,5 +1,89 @@
-Ubercart 3.x, xxxx-xx-xx (development version)
-------------------------
+Ubercart 3.0-rc1, 2011-10-4
+---------------------------
+- API:
+    * uc_order_load_line_items() returns stored and calculated line items together.
+    * Product nodes have display_price and display_price_suffix, which show
+      price changes that are ultimately calculated during checkout (e.g., VAT).
+    * Added currency field to orders.
+    * Added default values to uc_payment_enter().
+    * Removed uc_strip_form().
+-Database:
+    * Increased size of {uc_payment_receipts}.comment.
+- Theme:
+    * Invoice templates can use $shippable variable.
+    * Added theme_uc_checkout_pane_cart_review().
+    * Removed theme_uc_cart_view_price().
+    * Removed theme_uc_address_pane().
+- UI:
+    * Converted "View orders" page to a View.
+    * Address field settings moved from checkout settings to country settings.
+- Misc:
+    * Added dependence on Views to Orders.
+    * Restored dependence on Rules.
+    * Product tokens are [node:product:...] instead of [product:...].
+    * Removed [store:url] token. Duplicate of [site:url].
+    * Use the permission 'view reports' instead of 'view store reports'.
+
+Ubercart 3.0-beta4, 2011-7-25
+-----------------------------
+- API:
+    * Removed ability to disable order logging.
+    * Removed the ability to disable payment logging or tracking.
+    * Off-site payment methods can specify simpler redirect forms.
+    * Payment gateways are now only used and supported by uc_credit.
+    * Ordered product titles increased from 128 to 255 characters.
+    * The following hooks are now keyed by ID, though backwards compatibility is kept:
+      * hook_uc_cart_pane()
+      * hook_uc_checkout_pane()
+      * hook_uc_line_item()
+      * hook_uc_payment_gateway()
+      * hook_uc_payment_method()
+      * hook_uc_order_pane()
+      * hook_uc_order_state()
+    * Added hook_uc_order_pane_alter().
+    * Removed settings form summaries.
+- Theme:
+    * Improved theming of printable invoices.
+    * Shipping options theme functions for UPS and USPS include number of packages being sent.
+    * Added CSS classes for payment methods.
+- UI:
+    * Converted 'create order' page to Ajax.
+    * Many settings pages overhauled and simplified.
+    * Converted cart, checkout and order pane admin to use drag and drop ordering.
+    * Converted payment method and shipping quotes to use drag and drop ordering.
+    * Country names are fully translatable.
+- Misc:
+    * Product field ordering is handled by standard field display management.
+    * Added option to allow anonymous checkouts to use an existing email address.
+    * Automatic deletion of generated shipping labels.
+    * Product tokens are [product: ... ] instead of [node: ... ].
+    * Added additional "value" tokens for numeric prices.
+    * Changed [uc_order:number] token to [uc_order:order-number].
+    * Added some SimpleTests.
+    * Numerous documentation fixes and improvements.
+    * A multitude of bug fixes.
+
+Ubercart 3.0-beta3, 2011-5-26
+-----------------------------
+- API:
+    * Add Ajax-enabled "uc_address" form element for full or partial address entry.
+    * Handle temporary cart items with quantity of zero.
+    * $item->data is consistently unserialized in hook_uc_cart_item().
+    * 'Default quantity to add to cart' is respected when quantity field is hidden.
+    * Add hook_uc_payment_gateway_alter().
+    * Add hook_uc_checkout_pane_alter().
+- Theme:
+    * Pass order object to theme_uc_cart_complete_sale().
+    * Default product image size increased from 100x100 to 250x250.
+- UI:
+    * Converted all address forms to Ajax.
+    * Date formatting is now handled by Drupal core settings.
+- Misc:
+    * Purchased files with unlimited downloads cannot be purchased twice.
+    * Added some SimpleTests.
+    * Removed hard dependency on Rules.
+    * Numerous documentation fixes and improvements.
+    * A multitude of bug fixes.
 
 Ubercart 3.0-beta2, 2011-3-11
 -----------------------------
@@ -126,4 +210,3 @@ Ubercart 3.0-alpha1, 2010-04-14
 - Files:
     * Shipment labels are now managed files.
     * Catalog term images are now managed files in the {file} table.
-

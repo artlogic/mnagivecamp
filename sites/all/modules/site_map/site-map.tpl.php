@@ -1,5 +1,4 @@
 <?php
-// $Id: site-map.tpl.php,v 1.3 2010/06/08 04:49:06 frjo Exp $
 
 /**
  * @file site-map.tpl.php

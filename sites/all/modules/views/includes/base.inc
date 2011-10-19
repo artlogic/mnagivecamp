@@ -1,5 +1,4 @@
 <?php
-// $Id: base.inc,v 1.3.4.6 2010/12/01 20:05:06 dereine Exp $
 /**
  * @file
  *
@@ -14,6 +13,21 @@ class views_object {
    * Except for displays, options for the object will be held here.
    */
   var $options = array();
+  
+  /**
+   * The top object of a view.
+   * 
+   * @var view
+   */
+  var $view = NULL;
+  
+  /**
+   * Handler's definition
+   *
+   * @var array
+   */
+  var $definition;
+
   /**
    * Information about options for all kinds of purposes will be held here.
    * @code
@@ -88,6 +102,18 @@ class views_object {
     if (!empty($this->view)) {
       // Ensure we have a localization plugin.
       $this->view->init_localization();
+
+      // Set up default localization keys. Handlers and such set this for us
+      if (empty($localization_keys) && isset($this->localization_keys)) {
+        $localization_keys = $this->localization_keys;
+      }
+      // but plugins don't because there isn't a common init() these days.
+      else if (!empty($this->is_plugin)) {
+        if ($this->plugin_type != 'display') {
+          $localization_keys = array($this->view->current_display);
+          $localization_keys[] = $this->plugin_type;
+        }
+      }
     }
 
     foreach ($options as $key => $value) {
@@ -109,11 +135,7 @@ class views_object {
           continue;
         }
 
-        $this->unpack_options($storage[$key], $value, isset($definition[$key]['contains']) ? $definition[$key]['contains'] : array(), $all, FALSE);
-      }
-      elseif (!empty($definition[$key]['translatable']) && !empty($value)) {
-        $storage[$key] = t($value);
-        $this->unpack_options($storage[$key], array(), isset($definition[$key]['contains']) ? $definition[$key]['contains'] : array(), $all, FALSE, array_merge($localization_keys, array($key)));
+        $this->unpack_options($storage[$key], $value, isset($definition[$key]['contains']) ? $definition[$key]['contains'] : array(), $all, FALSE, array_merge($localization_keys, array($key)));
       }
       // Don't localize strings during editing. When editing, we need to work with
       // the original data, not the translated version.
@@ -123,10 +145,14 @@ class views_object {
           // sent for translation.
           // The $keys array is built from the view name, any localization keys
           // sent in, and the name of the property being processed.
+          $format = NULL;
+          if (isset($definition[$key]['format_key']) && isset($options[$definition[$key]['format_key']])) {
+            $format = $options[$definition[$key]['format_key']];
+          }
           $translation_data = array(
-          'value' => $value,
-          'format' => isset($options[$key . '_format']) ? $options[$key . '_format'] : NULL,
-          'keys' => array_merge(array($this->view->name), $localization_keys, array($key)),
+            'value' => $value,
+            'format' => $format,
+            'keys' => array_merge(array($this->view->name), $localization_keys, array($key)),
           );
           $storage[$key] = $this->view->localization_plugin->translate($translation_data);
         }
@@ -280,14 +306,18 @@ class views_object {
       foreach ($options as $key => $value) {
         $translation_keys = array_merge($keys, array($key));
         if (is_array($value)) {
-          $this->unpack_translatable($translatable, $storage, $key, $definition, $parents, $translation_keys);
+          $this->unpack_translatable($translatable, $options, $key, $definition, $parents, $translation_keys);
         }
         else if (!empty($definition[$key]['translatable']) && !empty($value)) {
           // Build source data and add to the array
+          $format = NULL;
+          if (isset($definition['format_key']) && isset($options[$definition['format_key']])) {
+            $format = $options[$definition['format_key']];
+          }
           $translatable[] = array(
             'value' => $value,
             'keys' => $translation_keys,
-            'format' => isset($options[$key . '_format']) ? $options[$key . '_format'] : NULL,
+            'format' => $format,
           );
         }
       }
@@ -295,9 +325,14 @@ class views_object {
     else if (!empty($definition['translatable']) && !empty($options)) {
       $value = $options;
       // Build source data and add to the array
+      $format = NULL;
+      if (isset($definition['format_key']) && isset($storage[$definition['format_key']])) {
+        $format = $options[$definition['format_key']];
+      }
       $translatable[] = array(
         'value' => $value,
         'keys' => isset($translation_keys) ? $translation_keys : $parents,
+        'format' => $format,
       );
     }
   }

@@ -1,5 +1,4 @@
 <?php
-// $Id: site_map.admin.inc,v 1.4.2.4 2010/08/17 17:54:02 frjo Exp $
 
 /**
  * @file
@@ -10,7 +9,7 @@
 /**
  * Menu callback; presents the sitemap settings page.
  */
-function site_map_admin_settings_form($form_state) {
+function site_map_admin_settings_form() {
 
   // Field to set site map page title.
   $form['site_map_page_title'] = array(
@@ -39,31 +38,33 @@ function site_map_admin_settings_form($form_state) {
     '#default_value' => variable_get('site_map_show_front', 1),
     '#description' => t('When enabled, this option will include the front page in the site map.'),
   );
-  $form['site_map_content']['site_map_show_blogs'] = array(
-    '#type' => 'checkbox',
-    '#title' => t('Show active blog authors'),
-    '#default_value' => variable_get('site_map_show_blogs', 1),
-    '#description' => t('When enabled, this option will show the 10 most active blog authors.'),
-  );
-  $book_options = array();
-  if (module_exists('book')) {
-    foreach (book_get_books() as $book) {
-      $book_options[$book['nid']] = $book['title'];
-    }
+  if (module_exists('blog')) {
+    $form['site_map_content']['site_map_show_blogs'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Show active blog authors'),
+      '#default_value' => variable_get('site_map_show_blogs', 1),
+      '#description' => t('When enabled, this option will show the 10 most active blog authors.'),
+    );
   }
-  $form['site_map_content']['site_map_show_books'] = array(
-    '#type' => 'checkboxes',
-    '#title' => t('Books to include in the site map'),
-    '#default_value' => variable_get('site_map_show_books', array()),
-    '#options' => $book_options,
-    '#multiple' => TRUE,
-  );
-//   $form['site_map_content']['site_map_books_expanded'] = array(
-//     '#type' => 'checkbox',
-//     '#title' => t('Show books expanded'),
-//     '#default_value' => variable_get('site_map_books_expanded', 1),
-//     '#description' => t('When enabled, this option will show all children pages for each book.'),
-//   );
+  if (module_exists('book')) {
+    $book_options = array();
+    foreach (book_get_books() as $book) {
+      $book_options[$book['mlid']] = $book['title'];
+    }
+    $form['site_map_content']['site_map_show_books'] = array(
+      '#type' => 'checkboxes',
+      '#title' => t('Books to include in the site map'),
+      '#default_value' => variable_get('site_map_show_books', array()),
+      '#options' => $book_options,
+      '#multiple' => TRUE,
+    );
+    $form['site_map_content']['site_map_books_expanded'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Show books expanded'),
+      '#default_value' => variable_get('site_map_books_expanded', 1),
+      '#description' => t('When enabled, this option will show all children pages for each book.'),
+    );
+  }
 
   $menu_options = array();
   $menu_options = menu_get_menus();
@@ -75,12 +76,14 @@ function site_map_admin_settings_form($form_state) {
     '#options' => $menu_options,
     '#multiple' => TRUE,
   );
-  $form['site_map_content']['site_map_show_faq'] = array(
-    '#type' => 'checkbox',
-    '#title' => t('Show FAQ content'),
-    '#default_value' => variable_get('site_map_show_faq', 0),
-    '#description' => t('When enabled, this option will include the content from the FAQ module in the site map.'),
-  );
+  if (module_exists('faq')) {
+    $form['site_map_content']['site_map_show_faq'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Show FAQ content'),
+      '#default_value' => variable_get('site_map_show_faq', 0),
+      '#description' => t('When enabled, this option will include the content from the FAQ module in the site map.'),
+    );
+  }
   $vocab_options = array();
   if (module_exists('taxonomy')) {
     foreach (taxonomy_get_vocabularies() as $vocabulary) {

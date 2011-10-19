@@ -1,26 +1,29 @@
-
 /**
  * @file
- * Styles for uc_quote module.
+ * Styles for shipping quote cart and checkout panes.
  */
 
-/* table.checkout-shipping {
-  width: 50%;
-}
- */
-.form-item .description {
-  /* Fix the inheritance from table rows. */
-  white-space: normal;
+#uc-cart-pane-quotes {
+  border: solid 1px #BBB;
+  padding: 5px;
 }
 
-.solid-border#quote {
-  margin-top: 1em;
-}
-
-.quote-button {
-  color: rgb(0, 0, 125);
-  cursor: pointer;
+#uc-cart-pane-quotes .quote-title {
   font-weight: bold;
+}
+
+#uc-cart-pane-quotes .uc-store-address-field .form-item label {
+  padding: 5px 6px 6px;
+}
+
+#uc-cart-pane-quotes .form-submit {
+  margin-left: 16em;
+}
+
+#quote {
+  border: solid 1px #BBB;
+  margin-top: 1em;
+  padding: 5px;
 }
 
 .quote-error {
@@ -29,9 +32,4 @@
 
 .quote-notes {
   margin-left: 25px;
-}
-
-.node-form .product-shipping .form-text {
-  display: inline;
-  width: auto;
 }

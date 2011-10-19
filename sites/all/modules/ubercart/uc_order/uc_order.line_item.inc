@@ -34,7 +34,7 @@ function uc_line_item_total($op, $order) {
     case 'display':
       $lines[] = array(
         'id' => 'total',
-        'title' => t('Total'),
+        'title' => t('Order total'),
         'amount' => uc_order_get_total($order),
       );
       return $lines;
@@ -80,7 +80,7 @@ function uc_order_update_line_item($id, $title, $amount, $data = NULL) {
 }
 
 /**
- * Deletes a line item, or pass $order as TRUE and $id as an order_id to
+ * Deletes a line item, or passes $order as TRUE and $id as an order_id to
  * delete every line item attached to an order.
  */
 function uc_order_delete_line_item($id, $order = FALSE) {
@@ -129,15 +129,30 @@ function _uc_line_item_list($action = NULL) {
     return $items;
   }
 
-  $items = module_invoke_all('uc_line_item', NULL);
-  foreach ($items as $i => $value) {
-    $items[$i]['enabled'] = variable_get('uc_li_' . $items[$i]['id'] . '_enabled', (!isset($items[$i]['enabled']) ? TRUE : $items[$i]['enabled']));
-    $items[$i]['weight'] = variable_get('uc_li_' . $items[$i]['id'] . '_weight', (!isset($items[$i]['weight']) ? 1 : $items[$i]['weight']));
+  $items = array();
+  foreach (module_invoke_all('uc_line_item') as $id => $item) {
+    // Preserve backward compatibility for methods with no key specified.
+    if (is_numeric($id)) {
+      $id = $item['id'];
+    }
+
+    // Set defaults.
+    $item += array(
+      'id' => $id,
+      'enabled' => TRUE,
+      'weight' => 1,
+    );
+
+    // Merge in any settings.
+    $items[$id] = array_merge($item, array(
+      'enabled' => variable_get('uc_li_' . $id . '_enabled', $item['enabled']),
+      'weight' => variable_get('uc_li_' . $id . '_weight', $item['weight']),
+    ));
   }
 
   drupal_alter('uc_line_item_data', $items);
 
-  usort($items, 'uc_weight_sort');
+  uasort($items, 'uc_weight_sort');
 
   return $items;
 }
@@ -147,9 +162,5 @@ function _uc_line_item_list($action = NULL) {
  */
 function _uc_line_item_data($item_id, $key) {
   $items = _uc_line_item_list();
-  foreach ($items as $item) {
-    if ($item['id'] == $item_id) {
-      return $item[$key];
-    }
-  }
+  return isset($items[$item_id][$key]) ? $items[$item_id][$key] : NULL;
 }

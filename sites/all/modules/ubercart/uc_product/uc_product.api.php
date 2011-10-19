@@ -40,7 +40,24 @@ function hook_uc_product_class($type, $op) {
 }
 
 /**
- * Return a structured array representing the given product's description.
+ * Define default product classes.
+ *
+ * The results of this hook are eventually passed through hook_node_info(),
+ * so you may include any keys that hook_node_info() uses. Defaults will
+ * be provided where keys are not set. This hook can also be used to
+ * override the default "product" product class name and description.
+ */
+function hook_uc_product_default_classes() {
+  return array(
+    'my_class' => array(
+      'name' => t('My product class'),
+      'description' => t('Content type description for my product class.'),
+    ),
+  );
+}
+
+/**
+ * Returns a structured array representing the given product's description.
  *
  * Modules that add data to cart items when they are selected should display it
  * with this hook. The return values from each implementation will be
@@ -50,6 +67,7 @@ function hook_uc_product_class($type, $op) {
  * @param $product
  *   Product. Usually one of the values of the array returned by
  *   uc_cart_get_contents().
+ *
  * @return
  *   A structured array that can be fed into drupal_render().
  */
@@ -110,8 +128,8 @@ function hook_uc_product_description_alter(&$description, $product) {
 /**
  * Notifies core of any SKUs your module adds to a given node.
  *
- * NOTE: DO NOT map the array keys, as the possibility for numeric SKUs exists, and
- * this will conflict with the behavior of module_invoke_all(), specifically
+ * NOTE: DO NOT map the array keys, as the possibility for numeric SKUs exists,
+ * and this will conflict with the behavior of module_invoke_all(), specifically
  * array_merge_recursive().
  *
  * Code lifted from uc_attribute.module.

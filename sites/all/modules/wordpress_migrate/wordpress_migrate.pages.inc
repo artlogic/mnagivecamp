@@ -18,6 +18,15 @@ function wordpress_migrate_import() {
  * Form for specifying where to obtain the WordPress content.
  */
 function wordpress_migrate_import_form($form, &$form_state) {
+  // If an uploaded file exceeds post_max_size, the validate and submit functions
+  // never get called (as they will if upload_max_filesize is exceeded but
+  // post_max_size isn't). We can detect this case by the presence of an error.
+  if ($error = error_get_last()) {
+    drupal_set_message(t('File upload failed: !error. Please make sure the file
+      you\'re trying to upload is not larger than !limit',
+      array('!error' => $error['message'], '!limit' => format_size(file_upload_max_size()))));
+  }
+
   $post_type = variable_get('wordpress_migrate_post_type', '');
   if (!$post_type) {
     if (user_access(WORDPRESS_MIGRATE_ACCESS_CONFIGURE)) {
@@ -44,6 +53,18 @@ function wordpress_migrate_import_form($form, &$form_state) {
       and upload the exported WXR file.'),
     '#suffix' => '</div>',
   );
+
+  if (module_exists('media') && !module_exists('migrate_extras')) {
+    $form['need_extras'] = array(
+      '#prefix' => '<div>',
+      '#markup' => t('You have the <a href="@media">Media module</a> enabled - to
+        take advantage of Media features, you need to also install and enable the
+        <a href="@extras">Migrate Extras module</a>.',
+        array('@media' => url('http://drupal.org/project/media'),
+          '@extras' => url('http://drupal.org/project/migrate_extras'))),
+      '#suffix' => '</div>',
+    );
+  }
 
   $form['credentials'] = array(
     '#type' => 'fieldset',
@@ -97,6 +118,12 @@ function wordpress_migrate_import_form($form, &$form_state) {
  * Submit callback for the WordPress import form.
  */
 function wordpress_migrate_import_form_submit($form, &$form_state) {
+  if ($_FILES['files']['error']['wxr_file']) {
+    form_set_error('wxr_file', t('The file could not be uploaded, most likely
+      because the file size exceeds the configured limit of !filesize',
+      array('!filesize' => format_size(file_upload_max_size()))));
+    return;
+  }
   $directory = 'wordpress://';
   if (!file_prepare_directory($directory, FILE_CREATE_DIRECTORY | FILE_MODIFY_PERMISSIONS)) {
     form_set_error('wxr_file', t('Could not prepare directory %directory',
@@ -108,7 +135,7 @@ function wordpress_migrate_import_form_submit($form, &$form_state) {
   if ($tmpfile) {
     // Handle uploaded file
     $filename = $_FILES['files']['name']['wxr_file'];
-    $destination = $directory . $filename;
+    $destination = $directory . str_replace(' ', '%20', $filename);
     $saved = file_unmanaged_move($tmpfile, $destination, FILE_EXISTS_REPLACE);
     if (!$saved) {
       form_set_error('wxr_file', t('Failed to save file to %filename', array('%filename' => $destination)));
@@ -116,7 +143,7 @@ function wordpress_migrate_import_form_submit($form, &$form_state) {
   }
   else {
     // Export the WordPress blog directly
-    $domain = $form_state['values']['domain'];
+    $domain = preg_replace('/http[s]?\:\/\//', '', $form_state['values']['domain']);
 
     // Login to the WordPress site
     $wordpress_version = 3;
@@ -186,10 +213,15 @@ function wordpress_migrate_import_form_submit($form, &$form_state) {
     // The excerpt namespace is sometimes omitted, stuff it in if necessary
     $wxr_string = file_get_contents($destination);
     $excerpt_ns = 'xmlns:excerpt="http://wordpress.org/export/1.0/excerpt/"';
-    if (!strpos($wxr_string, $excerpt_ns)) {
-      $content_ns = 'xmlns:content="http://purl.org/rss/1.0/modules/content/"';
+    $excerpt_signature = 'xmlns:excerpt="http://wordpress.org/export/';
+    $content_ns = 'xmlns:content="http://purl.org/rss/1.0/modules/content/"';
+    if (!strpos($wxr_string, $excerpt_signature)) {
       $wxr_string = str_replace($content_ns, $excerpt_ns . "\n\t" . $content_ns, $wxr_string);
     }
+    // Add the Atom namespace, in case it's referenced
+    $atom_ns = 'xmlns:atom="http://www.w3.org/2005/Atom"';
+    $wxr_string = str_replace($content_ns, $atom_ns . "\n\t" . $content_ns, $wxr_string);
+
     // Fix unencoded ampersands
     $wxr_string = str_replace('&amp;', '&', $wxr_string);
     $wxr_string = str_replace('&', '&amp;', $wxr_string);

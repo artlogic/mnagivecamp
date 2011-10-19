@@ -37,6 +37,16 @@ abstract class MigrationBase {
   }
 
   /**
+   * The name of a migration group, used to collect related migrations.
+   *
+   * @var string
+   */
+  protected $group;
+  public function getGroup() {
+    return $this->group;
+  }
+
+  /**
    * Detailed information describing the migration.
    *
    * @var string
@@ -54,6 +64,24 @@ abstract class MigrationBase {
   public function getOption($option_name) {
     if (isset($this->options[$option_name])) {
       return $this->options[$option_name];
+    }
+    else {
+      return NULL;
+    }
+  }
+  public function getItemLimit() {
+    if (isset($this->options['limit']) &&
+        ($this->options['limit']['unit'] == 'items' || $this->options['limit']['unit'] == 'item')) {
+      return $this->options['limit']['value'];
+    }
+    else {
+      return NULL;
+    }
+  }
+  public function getTimeLimit() {
+    if (isset($this->options['limit']) &&
+        ($this->options['limit']['unit'] == 'seconds' || $this->options['limit']['unit'] == 'second')) {
+      return $this->options['limit']['value'];
     }
     else {
       return NULL;
@@ -129,6 +157,9 @@ abstract class MigrationBase {
    * @var string
    */
   protected $outputFunction;
+  public function setOutputFunction($output_function) {
+    $this->outputFunction = $output_function;
+  }
 
   /**
    * The fraction of the memory limit at which an operation will be interrupted.
@@ -255,8 +286,15 @@ abstract class MigrationBase {
   /**
    * General initialization of a MigrationBase object.
    */
-  public function __construct() {
+  public function __construct($group = NULL) {
     $this->machineName = $this->generateMachineName();
+
+    if (empty($group)) {
+      $this->group = MigrateGroup::getInstance('default');
+    }
+    else {
+      $this->group = $group;
+    }
 
     // Record the memory limit in bytes
     $limit = trim(ini_get('memory_limit'));
@@ -478,6 +516,25 @@ abstract class MigrationBase {
   }
 
   /**
+   * Takes an Exception object and both saves and displays it, pulling additional
+   * information on the location triggering the exception.
+   *
+   * @param Exception $exception
+   *  Object representing the exception.
+   * @param boolean $save
+   *  Whether to save the message in the migration's mapping table. Set to FALSE
+   *  in contexts where this doesn't make sense.
+   */
+  public function handleException($exception, $save = TRUE) {
+    $result = _drupal_decode_exception($exception);
+    $message = $result['!message'] . ' (' . $result['%file'] . ':' . $result['%line'] . ')';
+    if ($save) {
+      $this->saveMessage($message);
+    }
+    $this->showMessage($message);
+  }
+
+  /**
    * Database logging callback - called when there's a database error. We
    * log non-critical stuff, and throw an exception otherwise
    * TODO: Eliminate in favor of hook_watchdog()?
@@ -575,7 +632,16 @@ abstract class MigrationBase {
                ->fields(array('highwater' => $highwater))
                ->condition('machine_name', $this->machineName);
       if (!$force) {
-        $query->condition('highwater', $highwater, '<');
+        if (!empty($this->highwaterField['type']) && $this->highwaterField['type'] == 'int') {
+          // If the highwater is an integer type, we need to force the DB server
+          // to treat the varchar highwater field as an integer (otherwise it will
+          // think '5' > '10'). CAST(highwater AS INTEGER) would be ideal, but won't
+          // work in MySQL. This hack is thought to be portable.
+          $query->where('(highwater+0) < :highwater', array(':highwater' => $highwater));
+        }
+        else {
+          $query->condition('highwater', $highwater, '<');
+        }
       }
       $query->execute();
     }
@@ -872,7 +938,7 @@ abstract class MigrationBase {
   }
 
   /**
-   * Test whether we've exceeded the desired time threshold. If so, output a message.
+   * Test whether we're approaching the PHP time limit. If so, output a message.
    *
    * @return boolean
    *  TRUE if the threshold is exceeded, FALSE if not.
@@ -884,12 +950,25 @@ abstract class MigrationBase {
     $time_elapsed = time() - REQUEST_TIME;
     $pct_time = $time_elapsed / $this->timeLimit;
     if ($pct_time > $this->timeThreshold) {
-      $this->showMessage(
-        t('Time limit approaching, starting new batch',
-          array('!pct' => round($pct_time*100),
-                '!usage' => format_size($time_elapsed),
-                '!limit' => format_size($this->timeLimit))),
-        'warning');
+      return TRUE;
+    }
+    else {
+      return FALSE;
+    }
+  }
+
+  /**
+   * Test whether we've exceeded the designated time limit. If so, output a message.
+   *
+   * @return boolean
+   *  TRUE if the threshold is exceeded, FALSE if not.
+   */
+  protected function timeOptionExceeded() {
+    if (!$timelimit = $this->getTimeLimit()) {
+      return FALSE;
+    }
+    $time_elapsed = time() - REQUEST_TIME;
+    if ($time_elapsed >= $timelimit) {
       return TRUE;
     }
     else {

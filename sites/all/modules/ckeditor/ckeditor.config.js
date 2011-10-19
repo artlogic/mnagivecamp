@@ -23,20 +23,18 @@ CKEDITOR.editorConfig = function(config) {
     // side
     // (as does Drupal), so just leave this line as is.
     config.protectedSource.push(/<\?[\s\S]*?\?>/g); // PHP Code
+    config.protectedSource.push(/<code>[\s\S]*?<\/code>/gi); // Code tags
     config.extraPlugins = '';
-    if (Drupal.ckeditorCompareVersion('3.1')) {
-        config.extraPlugins += (config.extraPlugins ? ',drupalbreaks' : 'drupalbreaks' );
-    }
 
     /*
-   * Append here extra CSS rules that should be applied into the editing area.
-   * Example: 
-   * config.extraCss = 'body {color:#FF0000;}';
-   */
+    * Append here extra CSS rules that should be applied into the editing area.
+    * Example: 
+    * config.extraCss = 'body {color:#FF0000;}';
+    */
     config.extraCss = '';
     /**
-   * Sample extraCss code for the "marinelli" theme.
-   */
+    * Sample extraCss code for the "marinelli" theme.
+    */
     if (Drupal.settings.ckeditor.theme == "marinelli") {
         config.extraCss += "body{background:#FFF;text-align:left;font-size:0.8em;}";
         config.extraCss += "#primary ol, #primary ul{margin:10px 0 10px 25px;}";
@@ -46,37 +44,58 @@ CKEDITOR.editorConfig = function(config) {
     }
 
     /**
-   * CKEditor's editing area body ID & class.
-   * See http://drupal.ckeditor.com/tricks
-   * This setting can be used if CKEditor does not work well with your theme by default.
-   */
+    * CKEditor's editing area body ID & class.
+    * See http://drupal.ckeditor.com/tricks
+    * This setting can be used if CKEditor does not work well with your theme by default.
+    */
     config.bodyClass = '';
     config.bodyId = '';
     /**
-   * Sample bodyClass and BodyId for the "marinelli" theme.
-   */
+    * Sample bodyClass and BodyId for the "marinelli" theme.
+    */
     if (Drupal.settings.ckeditor.theme == "marinelli") {
         config.bodyClass = 'singlepage';
         config.bodyId = 'primary';
     }
+}
 
-    if (Drupal.ckeditorCompareVersion('3.1')) {
-        CKEDITOR.plugins.addExternal('drupalbreaks', Drupal.settings.ckeditor.module_path + '/plugins/drupalbreaks/');
-    }
+/*
+ * Sample toolbars
+ */
 
-    if (Drupal.settings.ckeditor_swf) {
-        config.extraPlugins += (config.extraPlugins) ? ',swf' : 'swf';
-        CKEDITOR.plugins.addExternal('swf', Drupal.settings.ckeditor_swf.module_path + '/plugins/swf/');
-    }
-    if (Drupal.settings.ckeditor_link) {
-        config.extraPlugins += (config.extraPlugins) ? ',drupal_path' : 'drupal_path';
-        CKEDITOR.plugins.addExternal('drupal_path', Drupal.settings.ckeditor_link.module_path + '/plugins/link/');
-    }
-// 'MediaEmbed' plugin. To enable it, uncomment lines below and add 'MediaEmbed' button to selected toolbars.
-//config.extraPlugins += (config.extraPlugins ? ',mediaembed' : 'mediaembed' );
-//CKEDITOR.plugins.addExternal('mediaembed', Drupal.settings.ckeditor.module_path + '/plugins/mediaembed/');
+//Toolbar definition for basic buttons
+Drupal.settings.cke_toolbar_DrupalBasic = [ [ 'Format', 'Bold', 'Italic', '-', 'NumberedList','BulletedList', '-', 'Link', 'Unlink', 'Image' ] ];
 
-// 'IMCE' plugin. If IMCE module is enabled, you may uncomment lines below and add an 'IMCE' button to selected toolbar. 
-//config.extraPlugins += (config.extraPlugins ? ',imce' : 'imce' );
-//CKEDITOR.plugins.addExternal('imce', Drupal.settings.ckeditor.module_path + '/plugins/imce/');
-};
+//Toolbar definition for Advanced buttons
+Drupal.settings.cke_toolbar_DrupalAdvanced = [
+    ['Source'],
+    ['Cut','Copy','Paste','PasteText','PasteFromWord','-','SpellChecker', 'Scayt'],
+    ['Undo','Redo','Find','Replace','-','SelectAll','RemoveFormat'],
+    ['Image','Flash','Table','HorizontalRule','Smiley','SpecialChar'],
+    ['Maximize', 'ShowBlocks'],
+    '/',
+    ['Format'],
+    ['Bold','Italic','Underline','Strike','-','Subscript','Superscript'],
+    ['NumberedList','BulletedList','-','Outdent','Indent','Blockquote'],
+    ['JustifyLeft','JustifyCenter','JustifyRight','JustifyBlock','-','BidiRtl','BidiLtr'],
+    ['Link','Unlink','Anchor','Linkit','LinkToNode','LinkToMenu'],
+    ['DrupalBreak', 'DrupalPageBreak']
+];
+
+// Toolbar definiton for all buttons
+Drupal.settings.cke_toolbar_DrupalFull = [
+    ['Source'],
+    ['Cut','Copy','Paste','PasteText','PasteFromWord','-','SpellChecker', 'Scayt'],
+    ['Undo','Redo','Find','Replace','-','SelectAll','RemoveFormat'],
+    ['Image','Flash','Table','HorizontalRule','Smiley','SpecialChar'],
+    '/',
+    ['Bold','Italic','Underline','Strike','-','Subscript','Superscript'],
+    ['NumberedList','BulletedList','-','Outdent','Indent','Blockquote'],
+    ['JustifyLeft','JustifyCenter','JustifyRight','JustifyBlock','-','BidiRtl','BidiLtr'],
+    ['Link','Unlink','Anchor','Linkit','LinkToNode', 'LinkToMenu'],
+    '/',
+    ['Format','Font','FontSize'],
+    ['TextColor','BGColor'],
+    ['Maximize', 'ShowBlocks'],
+    ['DrupalBreak', 'DrupalPageBreak']
+];

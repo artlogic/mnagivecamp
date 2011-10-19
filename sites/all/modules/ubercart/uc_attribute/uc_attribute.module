@@ -126,15 +126,6 @@ function uc_attribute_menu() {
     'file' => 'uc_attribute.admin.inc',
   );
 
-  $items['admin/store/settings/attributes'] = array(
-    'title' => 'Attribute settings',
-    'description' => 'Configure the attribute settings',
-    'page callback' => 'drupal_get_form',
-    'page arguments' => array('uc_attribute_admin_settings'),
-    'access arguments' => array('administer attributes'),
-    'file' => 'uc_attribute.admin.inc',
-  );
-
   // Insert subitems into the edit node page for product types.
   $items['node/%node/edit/attributes'] = array(
     'title' => 'Attributes',
@@ -241,13 +232,6 @@ function uc_attribute_permission() {
 }
 
 /**
- * Implements hook_init().
- */
-function uc_attribute_init() {
-  drupal_add_css(drupal_get_path('module', 'uc_attribute') . '/uc_attribute.css', array('every_page' => TRUE));
-}
-
-/**
  * Implements hook_theme().
  */
 function uc_attribute_theme() {
@@ -271,6 +255,28 @@ function uc_attribute_theme() {
       'render element' => 'attributes',
       'file' => 'uc_attribute.admin.inc',
     ),
+  );
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter() for uc_product_settings_form().
+ */
+function uc_attribute_form_uc_product_settings_form_alter(&$form, &$form_state) {
+  $form['attributes'] = array(
+    '#type' => 'fieldset',
+    '#title' => 'Attribute settings',
+    '#group' => 'product-settings',
+    '#weight' => -3,
+  );
+  $form['attributes']['uc_attribute_option_price_format'] = array(
+    '#type' => 'radios',
+    '#title' => t('Option price format'),
+    '#default_value' => variable_get('uc_attribute_option_price_format', 'adjustment'),
+    '#options' => array('none' => t('Do not display'),
+      'adjustment' => t('Display price adjustment'),
+      'total' => t('Display total price'),
+    ),
+    '#description' => t('Determines how price variations are displayed to the customer. Prices may be displayed directly next to each attribute option in the attribute selection form either as a total price for the product with that option or as an adjustment (+ or -) showing how that option affects the product base price. However, the total price will not be displayed if a product has more than one attribute that can affect the price.'),
   );
 }
 
@@ -305,7 +311,7 @@ function uc_attribute_form_alter(&$form, &$form_state, $form_id) {
 /**
  * Implements hook_uc_form_alter().
  *
- * Attach option selectors to the form with the "Add to Cart" button.
+ * Attaches option selectors to the form with the "Add to Cart" button.
  *
  * This function also handles selecting attributes for products added to orders
  * manually.
@@ -469,7 +475,7 @@ function uc_attribute_uc_order_product_alter(&$product, $order) {
   // Convert the attribute and option ids to their current names. This
   // preserves the important data in case the attributes or options are
   // changed later.
-  if (is_array($product->data['attributes']) && is_numeric(key($product->data['attributes']))) {
+  if (!empty($product->data['attributes']) && is_numeric(key($product->data['attributes']))) {
     $attributes = array();
     $options = _uc_cart_product_get_options($product);
     foreach ($options as $aid => $option) {
@@ -511,6 +517,7 @@ function uc_attribute_uc_cart_item($op, $item) {
       foreach ($options as $option) {
         $item->cost += $option['cost'];
         $item->price += $option['price'];
+        $item->display_price += $option['price'];
         $item->weight += $option['weight'];
       }
 
@@ -587,8 +594,8 @@ function uc_attribute_uc_product_description($product) {
  * Loads attribute objects from the database.
  *
  * @todo If we feel it necessary, we could optimize this, by inverting the
- *  logic; that is, we could make uc_attribute load call this function and allow
- *  this function to minimize the number of queries necessary. -cha0s
+ * logic; that is, we could make uc_attribute load call this function and allow
+ * this function to minimize the number of queries necessary. -cha0s
  *
  * @param $aids
  *   Attribute IDs to load.
@@ -634,7 +641,7 @@ function uc_attribute_load_multiple($aids = array(), $type = '', $id = NULL) {
     $query->condition('ua.aid', $aids, 'IN');
   }
 
-  $aids = $query->execute()->fetchColumn();
+  $aids = $query->execute()->fetchCol();
 
   // Load the attributes.
   $attributes = array();
@@ -732,11 +739,12 @@ function uc_attribute_load($aid, $id = NULL, $type = '') {
 }
 
 /**
- * Fetches an array of attribute objects from the database that
- * belong to a product.
+ * Fetches an array of attribute objects from the database that belong to a
+ * product.
  *
  * @param $nid
  *   Product whose attributes to load.
+ *
  * @return
  *   The array of attribute objects.
  */
@@ -1031,11 +1039,12 @@ function uc_attribute_subject_option_delete($oid, $type, $id = NULL, $adjustment
 }
 
 /**
- * Deletes and attribute adjustment.
+ * Deletes an attribute adjustment.
  *
  * @param $fields
  *   Fields used to build a condition to delete adjustments against. Fields
  *   currently handled are 'aid', 'oid', and 'nid'.
+ *
  * @return
  *   The Drupal SAVED_DELETED flag.
  */
@@ -1102,7 +1111,7 @@ function uc_attribute_subject_exists($aid, $type, $id) {
  * @param $type
  *   Is this a product or a class?
  *
- * @return (bool)
+ * @return
  *   TRUE if the attribute option exists.
  */
 function uc_attribute_subject_option_exists($oid, $type, $id) {
@@ -1174,7 +1183,7 @@ function uc_class_get_attributes($pcid) {
 }
 
 /**
- * Get the options chosen for a product that is in the cart.
+ * Gets the options chosen for a product that is in the cart.
  *
  * @param $item
  *   An element of the array returned by uc_cart_get_contents.
@@ -1242,10 +1251,6 @@ function _uc_attribute_alter_form($product) {
   }
 
   $nid = $product->nid;
-  $qty = $product->default_qty;
-  if (!$qty) {
-    $qty = 1;
-  }
 
   // Load all product attributes for the given nid.
   $priced_attributes = uc_attribute_priced_attributes($nid);
@@ -1260,12 +1265,12 @@ function _uc_attribute_alter_form($product) {
     foreach ($attribute->options as $option) {
       switch (variable_get('uc_attribute_option_price_format', 'adjustment')) {
         case 'total':
-          $display_price = in_array($attribute->aid, $priced_attributes) ? ', ' . uc_currency_format(($product->sell_price + $option->price) * $qty) : '';
+          $display_price = in_array($attribute->aid, $priced_attributes) ? ', ' . uc_currency_format($product->sell_price + $option->price) : '';
           if (count($priced_attributes) == 1 && $attribute->display != 3) {
             break;
           }
         case 'adjustment':
-          $display_price = ($option->price != 0 ? ', ' . ($option->price > 0 ? '+' : '') . uc_currency_format($option->price * $qty) : '');
+          $display_price = ($option->price != 0 ? ', ' . ($option->price > 0 ? '+' : '') . uc_currency_format($option->price) : '');
           break;
         case 'none':
         default:
@@ -1305,7 +1310,7 @@ function _uc_attribute_alter_form($product) {
         '#options' => $options,
       );
     }
-    else if ($attribute->display > 0) {
+    elseif ($attribute->display > 0) {
       $form_attributes[$attribute->aid] = array(
         '#type' => 'textfield',
         '#default_value' => '',
@@ -1347,7 +1352,7 @@ function _uc_attribute_display_types() {
 }
 
 /**
- * Gets the price affecting attributes for a product
+ * Gets the price affecting attributes for a product.
  *
  * @param $nid
  *   The nid of a product.
@@ -1398,10 +1403,11 @@ function theme_uc_attribute_add_to_cart($variables) {
  * #title property of the element.
  *
  * @param $attribute
- *   Attribute object
+ *   Attribute object.
  * @param $title
  *   TRUE indicates the function is to return the attribute name when its label
  *   is set to '<none>'.
+ *
  * @return
  *   When the attribute label is set and not '<none>', it is returned.
  *   Otherwise, the attribute name is returned when $title is TRUE and NULL is

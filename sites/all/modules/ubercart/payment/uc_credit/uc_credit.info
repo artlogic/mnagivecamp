@@ -1,13 +1,13 @@
-name = Credit Card
-description = Receive credit card payments through checkout.
+name = Credit card
+description = Enables support for credit card payments at checkout.
 dependencies[] = uc_store
 dependencies[] = uc_payment
 package = Ubercart - payment
 core = 7.x
 
-; Information added by drupal.org packaging script on 2011-03-11
-version = "7.x-3.0-beta2"
+; Information added by drupal.org packaging script on 2011-10-07
+version = "7.x-3.0-rc2"
 core = "7.x"
 project = "ubercart"
-datestamp = "1299861070"
+datestamp = "1318007807"
 

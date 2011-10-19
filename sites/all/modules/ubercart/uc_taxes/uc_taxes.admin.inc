@@ -112,9 +112,9 @@ function uc_taxes_form($form, &$form_state, $rate_id = NULL) {
 
   $options = array();
 
-  foreach (_uc_line_item_list() as $line_item) {
-    if (!in_array($line_item['id'], array('subtotal', 'tax_subtotal', 'total'))) {
-      $options[$line_item['id']] = $line_item['title'];
+  foreach (_uc_line_item_list() as $id => $line_item) {
+    if (!in_array($id, array('subtotal', 'tax_subtotal', 'total'))) {
+      $options[$id] = $line_item['title'];
     }
   }
 
@@ -201,6 +201,9 @@ function uc_taxes_form_submit($form, &$form_state) {
     'inclusion_text' => $form_state['values']['inclusion_text'],
   );
   uc_taxes_rate_save((object) $rate);
+
+  // Ensure Rules picks up the new condition.
+  entity_flush_caches();
 
   // Update the name of the associated conditions.
   $conditions = rules_config_load('uc_taxes_' . $rate['id']);

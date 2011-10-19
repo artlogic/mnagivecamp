@@ -189,11 +189,40 @@ class MigrateDestinationNode extends MigrateDestinationEntity {
     if (!isset($node->revision)) {
       $node->revision = 0; // Saves disk space and writes. Can be overridden.
     }
+
+    // Trying to update an existing node
+    if ($migration->getSystemOfRecord() == Migration::DESTINATION) {
+      // Incoming data overrides existing data, so only copy non-existent fields
+      foreach ($old_node as $field => $value) {
+        // An explicit NULL in the source data means to wipe to old value (i.e.,
+        // don't copy it over from $old_node)
+        if (property_exists($node, $field) && $node->$field === NULL) {
+          // Ignore this field
+        }
+        elseif (!isset($node->$field)) {
+          $node->$field = $old_node->$field;
+        }
+      }
+    }
+
+    if (isset($node->nid) && !(isset($node->is_new) && $node->is_new)) {
+      $updating = TRUE;
+    }
+    else {
+      $updating = FALSE;
+    }
+
     migrate_instrument_start('node_save');
     node_save($node);
     migrate_instrument_stop('node_save');
 
     if (isset($node->nid)) {
+      if ($updating) {
+        $this->numUpdated++;
+      }
+      else {
+        $this->numCreated++;
+      }
 
       // Unfortunately, http://drupal.org/node/722688 was not accepted, so fix
       // the changed timestamp
@@ -223,10 +252,13 @@ class MigrateDestinationNode extends MigrateDestinationEntity {
           $node->timestamp = $changed;
         }
       }
+      $return = array($node->nid);
+    }
+    else {
+      $return = FALSE;
     }
 
     $this->complete($node, $row);
-    $return = isset($node->nid) ? array($node->nid) : FALSE;
     return $return;
   }
 }

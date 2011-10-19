@@ -125,3 +125,31 @@ function file_styles_update_7203() {
 function file_styles_update_7206() {
   return array();
 }
+
+/**
+ * Fix presets to use camelCase and honor links to media.
+ */
+function file_styles_update_7207() {
+  return array();
+}
+
+/**
+ * Fetch any image styles for use as new presets and register new hooks.
+ */
+function file_styles_update_7208() {
+  return array();
+}
+
+/**
+ * Fix any broken custom image styles.
+ */
+function file_styles_update_7209() {
+  return array();
+}
+
+/**
+ * Add support for media objects.
+ */
+function file_styles_update_7210() {
+  return array();
+}

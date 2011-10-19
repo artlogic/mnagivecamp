@@ -1,10 +1,6 @@
-/* $Id: ie.css,v 1.12 2011/01/04 02:59:37 webchick Exp $ */
 
 .block {
   zoom: 1;
-}
-#main-menu-links a {
-  color: white;
 }
 #password-strength-text {
   margin-top: 0;

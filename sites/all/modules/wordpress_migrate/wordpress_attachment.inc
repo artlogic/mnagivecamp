@@ -40,7 +40,7 @@ class WordPressAttachment extends WordPressMigration {
 
     $dest_options = array('copy_file' => TRUE);
     // Make use of the media module if present
-    if (module_exists('media')) {
+    if (module_exists('media') && module_exists('migrate_extras')) {
       $dest_options['source_migrations'] = $this->dependencies;
       $this->destination = new MigrateDestinationMedia('image', $dest_options);
       $keySchema = MigrateDestinationMedia::getKeySchema();
@@ -195,12 +195,9 @@ class WordPressAttachment extends WordPressMigration {
    * @param stdClass $row
    */
   public function complete(stdClass $file, stdClass $row) {
-    db_insert('wordpress_migrate_attachment')
-      ->fields(array(
-        'filename' => $this->wxrFile,
-        'original_url' => $row->attachment_url,
-        'new_uri' => parse_url(file_create_url($file->uri), PHP_URL_PATH),
-      ))
+    db_merge('wordpress_migrate_attachment')
+      ->key(array('filename' => $this->wxrFile, 'original_url' => $row->attachment_url))
+      ->fields(array('new_uri' => parse_url(file_create_url($file->uri), PHP_URL_PATH)))
       ->execute();
 
     // If media_gallery is enabled, add this image to the user's gallery.
@@ -224,6 +221,7 @@ class WordPressAttachment extends WordPressMigration {
         $gallery_node->type = 'media_gallery';
         $gallery_node->title = $blog_title;
         $gallery_node->uid = $user->uid;
+        $gallery_node->language = LANGUAGE_NONE;
       }
       $gallery_node->media_gallery_media[LANGUAGE_NONE][] = array('fid' => $file->fid);
       node_save($gallery_node);

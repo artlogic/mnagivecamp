@@ -7,27 +7,27 @@
 ?>
 
 <p>
-<?php echo t('Order number:'); ?> <?php echo $order_admin_link; ?><br />
-<?php echo t('Customer:'); ?> <?php echo $order_first_name; ?> <?php echo $order_last_name; ?> - <?php echo $order_email; ?><br />
-<?php echo t('Order total:'); ?> <?php echo $order_total; ?><br />
-<?php echo t('Shipping method:'); ?> <?php echo $order_shipping_method; ?>
+<?php print t('Order number:'); ?> <?php print $order_admin_link; ?><br />
+<?php print t('Customer:'); ?> <?php print $order_first_name; ?> <?php print $order_last_name; ?> - <?php print $order_email; ?><br />
+<?php print t('Order total:'); ?> <?php print $order_total; ?><br />
+<?php print t('Shipping method:'); ?> <?php print $order_shipping_method; ?>
 </p>
 
 <p>
-<?php echo t('Products:'); ?><br />
-<?php foreach ($products as $product) { ?>
-- <?php echo $product->qty; ?> x <?php echo $product->title . ' - ' . uc_currency_format($product->price * $product->qty); ?><br />
-&nbsp;&nbsp;<?php echo t('SKU: ') . $product->model; ?><br />
-    <?php if (is_array($product->data['attributes']) && count($product->data['attributes']) > 0) { ?>
-    <?php foreach ($product->data['attributes'] as $attribute => $option) {
-      echo '&nbsp;&nbsp;' . t('@attribute: @options', array('@attribute' => $attribute, '@options' => implode(', ', (array)$option))) . '<br />';
-    } ?>
-    <?php } ?>
+<?php print t('Products:'); ?><br />
+<?php foreach ($products as $product): ?>
+- <?php print $product->qty; ?> x <?php print $product->title; ?> - <?php print $product->total_price; ?><br />
+&nbsp;&nbsp;<?php print t('SKU'); ?>: <?php print $product->model; ?><br />
+    <?php if (!empty($product->data['attributes'])): ?>
+    <?php foreach ($product->data['attributes'] as $attribute => $option): ?>
+    &nbsp;&nbsp;<?php print t('@attribute: @options', array('@attribute' => $attribute, '@options' => implode(', ', (array)$option))); ?><br />
+    <?php endforeach; ?>
+    <?php endif; ?>
 <br />
-<?php } ?>
+<?php endforeach; ?>
 </p>
 
 <p>
-<?php echo t('Order comments:'); ?><br />
-<?php echo $order_comments; ?>
+<?php print t('Order comments:'); ?><br />
+<?php print $order_comments; ?>
 </p>

@@ -70,8 +70,7 @@ function uc_authorizenet_menu() {
  * Implements hook_uc_payment_gateway().
  */
 function uc_authorizenet_uc_payment_gateway() {
-  $gateways[] = array(
-    'id' => 'authorizenet',
+  $gateways['authorizenet'] = array(
     'title' => t('Authorize.net'),
     'description' => t('Process credit card payments using the AIM service of Authorize.net.'),
     'settings' => 'uc_authorizenet_settings_form',
@@ -211,10 +210,12 @@ function uc_authorizenet_settings_form($form, &$form_state) {
 }
 
 /**
- * Implements hook_form_FORM_ID_alter() for uc_payment_gateways_form().
+ * Implements hook_form_FORM_ID_alter() for uc_payment_method_settings_form().
  */
-function uc_authorizenet_form_uc_payment_gateways_form_alter(&$form, &$form_state) {
-  $form['#submit'][] = 'uc_authorizenet_payment_gateway_settings_submit';
+function uc_authorizenet_form_uc_payment_method_settings_form_alter(&$form, &$form_state) {
+  if ($form_state['build_info']['args'][0] == 'credit') {
+    $form['#submit'][] = 'uc_authorizenet_payment_gateway_settings_submit';
+  }
 }
 
 /**
@@ -588,7 +589,7 @@ function _uc_authorizenet_charge($order, $amount, $data) {
       'success' => TRUE,
       'comment' => $message,
       'message' => $message,
-      'data' => array('module' => 'uc_authorizenet', 'txn_type' => $response[11], 'txn_id' => $response[6]),
+      'data' => array('module' => 'uc_authorizenet', 'txn_type' => $response[11], 'txn_id' => $response[6], 'txn_authcode' => $response[4]),
       'uid' => $user->uid,
     );
 
@@ -958,7 +959,7 @@ function uc_authorizenet_arb_cancel($subscription_id, $order_id = NULL, $fee = a
     return FALSE;
   }
 
-  uc_order_comment_save($order_id, 0, t('Authorize.Net: Subscription @subscription_id cancelled.', array('@subscription_id' => $subscription_id)), 'admin');
+  uc_order_comment_save($order_id, 0, t('Authorize.Net: Subscription @subscription_id canceled.', array('@subscription_id' => $subscription_id)), 'admin');
 
   // Let other modules act on the canceled fee.
   if (!empty($fee)) {
@@ -1131,6 +1132,7 @@ function _uc_authorize_cim_xml_billto($order) {
     'state' => substr(uc_get_zone_code($order->billing_zone), 0, 2),
     'zip' => substr($order->billing_postal_code, 0, 20),
     'country' => !$billing_country ? '' : $billing_country[0]['country_iso_code_2'],
+    'phoneNumber' => substr($order->billing_phone, 0, 25),
   );
 }
 

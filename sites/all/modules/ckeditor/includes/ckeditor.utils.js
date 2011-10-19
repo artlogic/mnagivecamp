@@ -2,7 +2,7 @@
 Copyright (c) 2003-2011, CKSource - Frederico Knabben. All rights reserved.
 For licensing, see LICENSE.html or http://ckeditor.com/license
 */
-var CKEDITOR_BASEPATH = Drupal.settings.ckeditor.editor_path;
+window.CKEDITOR_BASEPATH = Drupal.settings.ckeditor.editor_path;
 (function ($) {
     Drupal.ckeditor = (typeof(CKEDITOR) != 'undefined');
 
@@ -31,7 +31,7 @@ var CKEDITOR_BASEPATH = Drupal.settings.ckeditor.editor_path;
     Drupal.ckeditorOn = function(textarea_id, run_filter) {
 
         run_filter = typeof(run_filter) != 'undefined' ? run_filter : true;
-        
+
         if ((typeof(Drupal.settings.ckeditor.load_timeout) == 'undefined') && (typeof(CKEDITOR.instances[textarea_id]) != 'undefined')) {
             return;
         }
@@ -43,8 +43,8 @@ var CKEDITOR_BASEPATH = Drupal.settings.ckeditor.editor_path;
         if (!CKEDITOR.env.isCompatible) {
             return;
         }
-        
-        if (run_filter && ($("#" + textarea_id).val().length > 0) && (($("#" + textarea_id).attr('class').indexOf("filterxss1") != -1 && typeof(Drupal.settings.ckeditor.autostart) != 'undefined' && typeof(Drupal.settings.ckeditor.autostart[textarea_id]) != 'undefined') || $("#" + textarea_id).attr('class').indexOf("filterxss2") != -1) && ckeditor_obj.input_formats[ckeditor_obj.elements[textarea_id]].filters.length > 0) {
+
+        if (run_filter && ($("#" + textarea_id).val().length > 0) && (($("#" + textarea_id).attr('class').indexOf("filterxss1") != -1 && typeof(Drupal.settings.ckeditor.autostart) != 'undefined' && typeof(Drupal.settings.ckeditor.autostart[textarea_id]) != 'undefined') || $("#" + textarea_id).attr('class').indexOf("filterxss2") != -1)) {
             $.ajax({
                 type: 'POST',
                 url: Drupal.settings.basePath + 'index.php?q=ckeditor/xss',
@@ -59,7 +59,7 @@ var CKEDITOR_BASEPATH = Drupal.settings.ckeditor.editor_path;
                 }
             })
         }
-        
+
         $("#" + textarea_id).next(".grippie").css("display", "none");
         $("#" + textarea_id).addClass("ckeditor-processed");
 
@@ -76,7 +76,11 @@ var CKEDITOR_BASEPATH = Drupal.settings.ckeditor.editor_path;
             instanceReady : function(ev)
             {
                 var body = $(ev.editor.document.$.body);
-                
+
+                ev.editor.dataProcessor.writer.setRules('p', {
+                    breakAfterOpen: false
+                });
+
                 if (typeof(ckeditor_obj.input_formats[ckeditor_obj.elements[textarea_id]].custom_formatting) != 'undefined') {
                     var dtd = CKEDITOR.dtd;
                     for ( var e in CKEDITOR.tools.extend( {}, dtd.$block, dtd.$listItem, dtd.$tableContent ) ) {
@@ -98,9 +102,27 @@ var CKEDITOR_BASEPATH = Drupal.settings.ckeditor.editor_path;
             focus : function(ev)
             {
                 Drupal.ckeditorInstance = ev.editor;
+                Drupal.ckeditorActiveId = ev.editor.name;
             }
         };
 
+        if (typeof Drupal.settings.ckeditor.scayt_language != 'undefined'){
+            textarea_settings['scayt_sLang'] = Drupal.settings.ckeditor.scayt_language;
+        }
+
+        if (typeof textarea_settings['js_conf'] != 'undefined'){
+            for (var add_conf in textarea_settings['js_conf']){
+                textarea_settings[add_conf] = eval(textarea_settings['js_conf'][add_conf]);
+            }
+        }
+
+        textarea_settings.extraPlugins = '';
+        if (typeof CKEDITOR.plugins != 'undefined'){
+            for (var plugin in textarea_settings['loadPlugins']){
+                textarea_settings.extraPlugins += (textarea_settings.extraPlugins) ? ',' + textarea_settings['loadPlugins'][plugin]['name'] : textarea_settings['loadPlugins'][plugin]['name'];
+                CKEDITOR.plugins.addExternal(textarea_settings['loadPlugins'][plugin]['name'], textarea_settings['loadPlugins'][plugin]['path']);
+            }
+        }
         Drupal.ckeditorInstance = CKEDITOR.replace(textarea_id, textarea_settings);
     };
 
@@ -119,6 +141,7 @@ var CKEDITOR_BASEPATH = Drupal.settings.ckeditor.editor_path;
         if (Drupal.ckeditorInstance && Drupal.ckeditorInstance.name == textarea_id)
             delete Drupal.ckeditorInstance;
 
+        $("#" + textarea_id).val(CKEDITOR.instances[textarea_id].getData());
         CKEDITOR.instances[textarea_id].destroy(true);
 
         $("#" + textarea_id).next(".grippie").css("display", "block");
@@ -129,7 +152,7 @@ var CKEDITOR_BASEPATH = Drupal.settings.ckeditor.editor_path;
  */
     Drupal.ckeditorOpenPopup = function (jsID, textareaID, width){
         var popupUrl = Drupal.settings.ckeditor.module_path + '/includes/ckeditor.popup.html?var=' + jsID + '&el=' + textareaID;
-  
+
         var percentPos = width.indexOf('%');
         if (percentPos != -1) {
             width = width.substr(0, percentPos);
@@ -207,10 +230,10 @@ var CKEDITOR_BASEPATH = Drupal.settings.ckeditor.editor_path;
             if (Drupal.behaviors.textarea && Drupal.behaviors.textarea.attach) {
                 Drupal.behaviors.textarea.attach(context);
             }
-            
+
             $(context).find("textarea.ckeditor-mod:not(.ckeditor-processed)").each(function () {
                 var ta_id=$(this).attr("id");
-                if (typeof(CKEDITOR.instances[ta_id]) != 'undefined'){
+                if (CKEDITOR.instances && typeof(CKEDITOR.instances[ta_id]) != 'undefined'){
                     Drupal.ckeditorOff(ta_id);
                 }
                 if ((typeof(Drupal.settings.ckeditor.autostart) != 'undefined') && (typeof(Drupal.settings.ckeditor.autostart[ta_id]) != 'undefined')) {
@@ -236,6 +259,8 @@ var CKEDITOR_BASEPATH = Drupal.settings.ckeditor.editor_path;
         function(context){
             $(context).find("textarea.ckeditor-mod.ckeditor-processed").each(function () {
                 var ta_id=$(this).attr("id");
+                if (CKEDITOR.instances[ta_id])
+                    $('#'+ta_id).val(CKEDITOR.instances[ta_id].getData());
                 Drupal.ckeditorOff(ta_id);
             }).removeClass('ckeditor-processed');
         }

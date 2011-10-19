@@ -11,13 +11,13 @@
 function uc_roles_default_rules_configuration() {
   $configs = array();
 
-  // Renew all the roles on an order when the status matches what's set in the roles admin settings.
+  // Renew all the roles on an order when the status matches what's set
+  // in the roles admin settings.
   $rule = rules_reaction_rule();
   $rule->label = t('Grant or renew purchased roles');
   $rule->active = TRUE;
   $rule->event('uc_order_status_update');
-  $rule->condition(rules_condition('data_is', array('data:select' => 'order:order-status', 'value' => 'completed'))->negate())
-    ->condition('data_is', array('data:select' => 'updated_order:order-status', 'value' => 'completed'))
+  $rule->condition('data_is', array('data:select' => 'updated_order:order-status', 'value' => 'payment_received'))
     ->action('uc_roles_order_renew', array('order:select' => 'updated_order', 'message' => FALSE));
   $configs['uc_role_renewal'] = $rule;
 
@@ -70,7 +70,7 @@ function uc_roles_default_rules_configuration() {
   $rule->event('uc_roles_notify_renew');
   $rule->action('uc_roles_order_email', array(
     'order:select' => 'order',
-    'expiration:select' => 'expiriation',
+    'expiration:select' => 'expiration',
     'from' => uc_store_email_from(),
     'addresses' => '[order:email]',
     'subject' => uc_get_message('uc_roles_renew_subject'),

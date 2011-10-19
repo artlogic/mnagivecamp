@@ -6,36 +6,6 @@
  */
 
 /**
- * Form builder for the admin settings.
- *
- * @ingroup forms
- */
-function uc_reports_settings_form($form, &$form_state) {
-  $form['uc_reports_table_size'] = array(
-    '#type' => 'textfield',
-    '#title' => t('Paged table size'),
-    '#description' => t('The maximum number of rows displayed on one page for a report table.'),
-    '#default_value' => variable_get('uc_reports_table_size', 30),
-  );
-
-  $options = array();
-  foreach (uc_order_status_list() as $status) {
-    $options[$status['id']] = $status['title'];
-  }
-
-  $form['uc_reports_reported_statuses'] = array(
-    '#type' => 'select',
-    '#title' => t('Reported statuses'),
-    '#description' => t('Only orders with selected statuses will be included in reports.'),
-    '#options' => $options,
-    '#default_value' => variable_get('uc_reports_reported_statuses', array('completed')),
-    '#multiple' => TRUE,
-  );
-
-  return system_settings_form($form);
-}
-
-/**
  * Displays the customer report.
  */
 function uc_reports_customers() {
@@ -171,6 +141,14 @@ function uc_reports_products() {
     }
   }
 
+  $query = db_select('node', 'n', array('fetch' => PDO::FETCH_ASSOC));
+
+  $query->addField('n', 'nid');
+  $query->addField('n', 'title');
+  $query->addExpression("(SELECT SUM(uop.qty) FROM {uc_order_products} AS uop LEFT JOIN {uc_orders} AS uo ON uop.order_id = uo.order_id WHERE uo.order_status IN (:statuses) AND uop.nid = n.nid)", 'sold', array(':statuses' => $order_statuses));
+  $query->addExpression("(SELECT (SUM(uop.price * uop.qty) - SUM(uop.cost * uop.qty)) FROM {uc_order_products} AS uop LEFT JOIN {uc_orders} AS uo ON uop.order_id = uo.order_id WHERE uo.order_status IN (:statuses) AND uop.nid = n.nid)", 'gross', array(':statuses' => $order_statuses));
+  $query->addExpression("(SELECT (SUM(uop.price * uop.qty)) FROM {uc_order_products} AS uop LEFT JOIN {uc_orders} AS uo ON uop.order_id = uo.order_id WHERE uo.order_status IN (:statuses) AND uop.nid = n.nid)", 'revenue', array(':statuses' => $order_statuses));
+
   $header = array(
     array('data' => t('#')),
     array('data' => t('Product'), 'field' => 'n.title'),
@@ -185,15 +163,11 @@ function uc_reports_products() {
     $csv_rows[0][] = t('Views');
   }
 
-  $query = db_select('node', 'n', array('fetch' => PDO::FETCH_ASSOC))->extend('PagerDefault')->extend('TableSort')
+  $query->extend('PagerDefault')
+    ->extend('TableSort')
     ->orderByHeader($header)
     ->limit($page_size);
 
-  $query->addField('n', 'nid');
-  $query->addField('n', 'title');
-  $query->addExpression("(SELECT SUM(uop.qty) FROM {uc_order_products} AS uop LEFT JOIN {uc_orders} AS uo ON uop.order_id = uo.order_id WHERE uo.order_status IN (:statuses) AND uop.nid = n.nid)", 'sold', array(':statuses' => $order_statuses));
-  $query->addExpression("(SELECT (SUM(uop.price * uop.qty) - SUM(uop.cost * uop.qty)) FROM {uc_order_products} AS uop LEFT JOIN {uc_orders} AS uo ON uop.order_id = uo.order_id WHERE uo.order_status IN (:statuses) AND uop.nid = n.nid)", 'gross', array(':statuses' => $order_statuses));
-  $query->addExpression("(SELECT (SUM(uop.price * uop.qty)) FROM {uc_order_products} AS uop LEFT JOIN {uc_orders} AS uo ON uop.order_id = uo.order_id WHERE uo.order_status IN (:statuses) AND uop.nid = n.nid)", 'revenue', array(':statuses' => $order_statuses));
   if ($views_column) {
     $query->leftJoin('node_counter', 'nc', 'n.nid = nc.nid');
     $query->addField('nc', 'totalcount');
@@ -692,7 +666,6 @@ function theme_uc_reports_product_table($variables) {
  */
 function uc_reports_sales_summary() {
   $order_statuses = _uc_reports_order_statuses();
-  $format = variable_get('uc_date_format_default', 'm/d/Y');
 
   $date_day_of_month = date('n');
   $month_start = mktime(0, 0, 0, $date_day_of_month, 1);
@@ -707,7 +680,7 @@ function uc_reports_sales_summary() {
   $today = _uc_reports_get_sales($today_start);
 
   $rows[] = array(
-    l(t('Today, !date', array('!date' => format_date($today_start, 'custom', $format))), 'admin/store/orders/search/results/0/0/0/0/0/0/' . $today_start . '/' . $today_end),
+    l(t('Today, !date', array('!date' => format_date($today_start, 'uc_store'))), 'admin/store/orders/search/results/0/0/0/0/0/0/' . $today_start . '/' . $today_end),
     $today['total'],
     array('data' => array('#theme' => 'uc_price', '#price' => $today['income'])),
     array('data' => array('#theme' => 'uc_price', '#price' => $today['average'])),
@@ -717,7 +690,7 @@ function uc_reports_sales_summary() {
   $yesterday = _uc_reports_get_sales($today_start - 86400);
 
   $rows[] = array(
-    l(t('Yesterday, !date', array('!date' => format_date($today_start - 86400, 'custom', $format))), 'admin/store/orders/search/results/0/0/0/0/0/0/' . ($today_start - 86400) . '/' . ($today_end - 86400)),
+    l(t('Yesterday, !date', array('!date' => format_date($today_start - 86400, 'uc_store'))), 'admin/store/orders/search/results/0/0/0/0/0/0/' . ($today_start - 86400) . '/' . ($today_end - 86400)),
     $yesterday['total'],
     array('data' => array('#theme' => 'uc_price', '#price' => $yesterday['income'])),
     array('data' => array('#theme' => 'uc_price', '#price' => $yesterday['average'])),
@@ -802,7 +775,7 @@ function uc_reports_sales_summary() {
     if (!empty($status['title'])) {
       // Add the total number of orders with this status to the table.
       $rows[] = array(
-        l($status['title'], 'admin/store/orders/sort/' . $status['order_status_id']),
+        l($status['title'], 'admin/store/orders', array('query' => array('status' => $status['order_status_id']))),
         $status['order_count'],
       );
     }
@@ -980,8 +953,6 @@ function uc_reports_sales_year_form_submit($form, &$form_state) {
  * Displays the custom sales report form and table.
  */
 function uc_reports_sales_custom() {
-  $format = variable_get('uc_date_format_default', 'm/d/Y');
-
   // Use default report parameters if we don't detect values in the URL.
   if (arg(5) == '') {
     $args = array(
@@ -1020,10 +991,10 @@ function uc_reports_sales_custom() {
 
     // Create the date title for the subreport.
     if ($args['length'] == 'day') {
-      $date = format_date($subreport['start'], 'custom', $format . ' - D');
+      $date = format_date($subreport['start'], 'custom', variable_get('date_format_uc_store', 'm/d/Y') . ' - D');
     }
     else {
-      $date = format_date($subreport['start'], 'custom', $format) . ' - ' . format_date($subreport['end'], 'custom', $format);
+      $date = format_date($subreport['start'], 'uc_store') . ' - ' . format_date($subreport['end'], 'uc_store');
     }
 
     // Build the order data for the subreport.
@@ -1074,9 +1045,9 @@ function uc_reports_sales_custom() {
   }
 
   // Calculate the totals for the report.
-  $order_total = db_query("SELECT COUNT(*) FROM {uc_orders} WHERE :start <= created AND created <= :end AND order_status IN (:statuses)", array(':statuses' => $args['status'], ':start' => $subreport['start'], ':end' => $subreport['end']))->fetchField();
-  $product_total = db_query("SELECT SUM(qty) FROM {uc_orders} AS o LEFT JOIN {uc_order_products} AS op ON o.order_id = op.order_id WHERE :start <= created AND created <= :end AND order_status IN (:statuses)", array(':statuses' => $args['status'], ':start' => $subreport['start'], ':end' => $subreport['end']))->fetchField();
-  $revenue_total = db_query("SELECT SUM(order_total) FROM {uc_orders} WHERE :start <= created AND created <= :end AND order_status IN (:statuses)", array(':statuses' => $args['status'], ':start' => $subreport['start'], ':end' => $subreport['end']))->fetchField();
+  $order_total = db_query("SELECT COUNT(*) FROM {uc_orders} WHERE :start <= created AND created <= :end AND order_status IN (:statuses)", array(':statuses' => $args['status'], ':start' => $args['start_date'], ':end' => $args['end_date']))->fetchField();
+  $product_total = db_query("SELECT SUM(qty) FROM {uc_orders} AS o LEFT JOIN {uc_order_products} AS op ON o.order_id = op.order_id WHERE :start <= created AND created <= :end AND order_status IN (:statuses)", array(':statuses' => $args['status'], ':start' => $args['start_date'], ':end' => $args['end_date']))->fetchField();
+  $revenue_total = db_query("SELECT SUM(order_total) FROM {uc_orders} WHERE :start <= created AND created <= :end AND order_status IN (:statuses)", array(':statuses' => $args['status'], ':start' => $args['start_date'], ':end' => $args['end_date']))->fetchField();
 
   // Add the total row to the report table.
   $rows[] = array(

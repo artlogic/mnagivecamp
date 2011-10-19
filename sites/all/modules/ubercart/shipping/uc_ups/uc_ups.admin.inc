@@ -8,10 +8,11 @@
 /**
  * UPS Online Tool settings.
  *
- * Records UPS account information neccessary to use the service. Allow testing
- * or production mode. Configure which UPS services are quoted to customers.
+ * Records UPS account information neccessary to use the service. Allows testing
+ * or production mode. Configures which UPS services are quoted to customers.
  *
  * @see uc_admin_settings_validate()
+ * @see uc_admin_settings_submit()
  * @ingroup forms
  */
 function uc_ups_admin_settings($form, &$form_state) {
@@ -228,6 +229,27 @@ function uc_ups_admin_settings($form, &$form_state) {
     '#disabled' => TRUE,
   );
 
+  // Container for label printing
+  $form['uc_ups_labels'] = array(
+    '#type'          => 'fieldset',
+    '#title'         => t('Label Printing'),
+    '#description'   => t('Preferences for UPS Shipping Label Printing.  Additional permissions from UPS are required to use this feature.'),
+    '#collapsible'   => TRUE,
+    '#collapsed'     => TRUE,
+  );
+
+  $period = drupal_map_assoc(array(86400, 302400, 604800, 1209600, 2419200, 0), 'format_interval');
+  $period[0] = t('Forever');
+
+  // Form to select how long labels stay on server
+  $form['uc_ups_labels']['uc_ups_label_lifetime'] = array(
+    '#type'          => 'select',
+    '#title'         => t('Label lifetime'),
+    '#default_value' => variable_get('uc_ups_label_lifetime', 0),
+    '#options'       => $period,
+    '#description'   => t('Controls how long labels are stored on the server before being automatically deleted. Cron must be enabled for automatic deletion. Default is never delete the labels, keep them forever.'),
+  );
+
   // Taken from system_settings_form(). Only, don't use its submit handler.
   $form['actions']['#type'] = 'actions';
   $form['actions']['submit'] = array(
@@ -298,6 +320,7 @@ function uc_ups_admin_settings_submit($form, &$form_state) {
     'uc_ups_rate_markup',
     'uc_ups_weight_markup_type',
     'uc_ups_weight_markup',
+    'uc_ups_label_lifetime',
     'uc_ups_all_in_one',
     'uc_ups_unit_system',
     'uc_ups_insurance',
@@ -316,258 +339,4 @@ function uc_ups_admin_settings_submit($form, &$form_state) {
 
   cache_clear_all();
   drupal_theme_rebuild();
-}
-
-/**
- * Last chance for user to review shipment.
- *
- * @see uc_ups_confirm_shipment_submit()
- * @see theme_uc_ups_confirm_shipment()
- * @ingroup forms
- */
-function uc_ups_confirm_shipment($form, &$form_state, $order) {
-  $form['digest'] = array('#type' => 'hidden', '#value' => $_SESSION['ups']['digest']);
-  $form['actions'] = array('#type' => 'actions');
-  $form['actions']['submit'] = array('#type' => 'submit', '#value' => t('Request Pickup'));
-
-  return $form;
-}
-
-/**
- * Displays final shipment information for review.
- *
- * @see uc_ups_confirm_shipment()
- * @ingroup themeable
- */
-function theme_uc_ups_confirm_shipment($variables) {
-  $form = $variables['form'];
-
-  $output = '<div class="shipping-address"><b>' . t('Ship from:') . '</b><br />';
-  $output .= uc_address_format(
-    check_plain($_SESSION['ups']['origin']->first_name),
-    check_plain($_SESSION['ups']['origin']->last_name),
-    check_plain($_SESSION['ups']['origin']->company),
-    check_plain($_SESSION['ups']['origin']->street1),
-    check_plain($_SESSION['ups']['origin']->street2),
-    check_plain($_SESSION['ups']['origin']->city),
-    check_plain($_SESSION['ups']['origin']->zone),
-    check_plain($_SESSION['ups']['origin']->postal_code),
-    check_plain($_SESSION['ups']['origin']->country)
-  );
-  $output .= '<br />' . check_plain($_SESSION['ups']['origin']->email);
-  $output .= '</div>';
-
-  $output .= '<div class="shipping-address"><b>' . t('Ship to:') . '</b><br />';
-  $output .= uc_address_format(
-    check_plain($_SESSION['ups']['destination']->first_name),
-    check_plain($_SESSION['ups']['destination']->last_name),
-    check_plain($_SESSION['ups']['destination']->company),
-    check_plain($_SESSION['ups']['destination']->street1),
-    check_plain($_SESSION['ups']['destination']->street2),
-    check_plain($_SESSION['ups']['destination']->city),
-    check_plain($_SESSION['ups']['destination']->zone),
-    check_plain($_SESSION['ups']['destination']->postal_code),
-    check_plain($_SESSION['ups']['destination']->country)
-  );
-  $output .= '<br />' . check_plain($_SESSION['ups']['destination']->email);
-  $output .= '</div>';
-  $output .= '<div class="shipment-data">';
-  $method = uc_ups_uc_shipping_method();
-  $output .= '<b>' . $method['ups']['quote']['accessorials'][$_SESSION['ups']['service']] . '</b><br />';
-  $output .= '<i>' . check_plain($_SESSION['ups']['rate']['type']) . '</i>: ' . theme('uc_price', array('price' => $_SESSION['ups']['rate']['amount'])) . ' (' . check_plain($_SESSION['ups']['rate']['currency']) . ')<br />';
-  $ship_date = $_SESSION['ups']['ship_date'];
-  $output .= 'Ship date: ' . format_date(gmmktime(12, 0, 0, $ship_date['month'], $ship_date['day'], $ship_date['year']), 'custom', variable_get('uc_date_format_default', 'm/d/Y'));
-  $exp_delivery = $_SESSION['ups']['expected_delivery'];
-  $output .= '<br />Expected delivery: ' . format_date(gmmktime(12, 0, 0, $exp_delivery['month'], $exp_delivery['day'], $exp_delivery['year']), 'custom', variable_get('uc_date_format_default', 'm/d/Y'));
-  $output .= "</div>\n<br style=\"clear: both;\" />";
-  $output .= drupal_render_children($form);
-
-  return $output;
-}
-
-/**
- * Generates label and schedules pickup of the shipment.
- *
- * @see uc_ups_confirm_shipment()
- */
-function uc_ups_confirm_shipment_submit($form, &$form_state) {
-  // Request pickup using parameters in form.
-  $order_id = $_SESSION['ups']['order_id'];
-  $packages = array_keys($_SESSION['ups']['packages']);
-  $request = uc_ups_request_pickup($form_state['values']['digest'], $order_id, $packages);
-  $result = drupal_http_request(variable_get('uc_ups_connection_address', 'https://wwwcie.ups.com/ups.app/xml/') . 'ShipAccept', array(
-    'method' => 'POST',
-    'data' => $request,
-  ));
-  $response = new SimpleXMLElement($result->data);
-  $code = (string)$response->Response->ResponseStatusCode;
-  if ($code == 0) { // failed request
-    $error = $response->Response->Error;
-    $error_severity = (string)$error->ErrorSeverity;
-    $error_code = (string)$error->ErrorCode;
-    $error_description = (string)$error->ErrorDescription;
-    drupal_set_message(t('(@severity error @code) @description', array('@severity' => $error_severity, '@code' => $error_code, '@description' => $error_description)), 'error');
-    if ($error_severity == 'HardError') {
-      $form_state['redirect'] = 'admin/store/orders/' . $order_id . '/shipments/ups/' . implode('/', $packages);
-      return;
-    }
-  }
-
-  $shipment = new stdClass();
-  $shipment->order_id = $order_id;
-  $shipment->origin = clone $_SESSION['ups']['origin'];
-  $shipment->destination = clone $_SESSION['ups']['destination'];
-  $shipment->packages = $_SESSION['ups']['packages'];
-  $shipment->shipping_method = 'ups';
-  $shipment->accessorials = $_SESSION['ups']['service'];
-  $shipment->carrier = t('UPS');
-  // if NegotiatedRates exist, quote based on those, otherwise, use TotalCharges
-  if (isset($response->ShipmentResults->ShipmentCharges)) {
-    $charge = $response->ShipmentResults->ShipmentCharges->TotalCharges;
-    if (isset($response->ShipmentResults->NegotiatedRates)) {
-      $charge = $response->ShipmentResults->NegotiatedRates->NetSummaryCharges->GrandTotal;
-    }
-  }
-  $cost = (string)$charge->MonetaryValue;
-  $shipment->cost = $cost;
-  $shipment->tracking_number = (string)$response->ShipmentResults->ShipmentIdentificationNumber;
-  $ship_date = $_SESSION['ups']['ship_date'];
-  $shipment->ship_date = gmmktime(12, 0, 0, $ship_date['month'], $ship_date['day'], $ship_date['year']);
-  $exp_delivery = $_SESSION['ups']['expected_delivery'];
-  $shipment->expected_delivery = gmmktime(12, 0, 0, $exp_delivery['month'], $exp_delivery['day'], $exp_delivery['year']);
-
-  foreach ($response->ShipmentResults->PackageResults as $package_results) {
-    $package =& current($shipment->packages);
-    $package->tracking_number = (string)$package_results->TrackingNumber;
-    $label_image = (string)$package_results->LabelImage->GraphicImage;
-    if (file_preprare_directory('public://ups_labels', FILE_CREATE_DIRECTORY)) {
-      $label_path = 'public://ups_labels/label' . $package->tracking_number . '.gif';
-      if ($label_file = file_save_data(base64_decode($label_image), $label_path, FILE_EXISTS_REPLACE)) {
-        file_usage_add($label_file, 'uc_shipping', 'package', $package->package_id);
-        $package->label_image = $label_file;
-      }
-      else {
-        drupal_set_message(t('Could not open a file to save the label image.'), 'error');
-      }
-    }
-    else {
-      drupal_set_message(t('Could not find or create the directory "ups_labels" in the file system path.'), 'error');
-    }
-    unset($package);
-    next($shipment->packages);
-  }
-
-  uc_shipping_shipment_save($shipment);
-
-  unset($_SESSION['ups']);
-  $form_state['redirect'] = 'admin/store/orders/' . $order_id . '/shipments';
-}
-
-/**
- * Constructs an XML label and pickup request.
- *
- * @param $digest
- *   Base-64 encoded shipment request.
- * @param $order_id
- *   The order id of the shipment.
- * @param $packages
- *   An array of package ids to be shipped.
- *
- * @return
- *   ShipmentAcceptRequest XML document to send to UPS.
- */
-function uc_ups_request_pickup($digest, $order_id = 0, $packages = array()) {
-  $packages = (array)$packages;
-
-  $schema = uc_ups_access_request();
-  $schema .= "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<ShipmentAcceptRequest>
-  <Request>
-    <RequestAction>ShipAccept</RequestAction>";
-    if ($order_id || count($packages)) {
-      $schema .= "\n<TransactionReference>
-      <CustomerContext>";
-      if ($order_id) {
-        $schema .= "<OrderId>" . $order_id . "</OrderId>\n";
-      }
-      foreach ($packages as $pkg_id) {
-        $schema .= "<PackageId>" . $pkg_id . "</PackageId>\n";
-      }
-      $schema .= "</CustomerContext>\n</TransactionReference>\n";
-    }
-  $schema .= "  </Request>
-  <ShipmentDigest>" . $digest . "</ShipmentDigest>
-</ShipmentAcceptRequest>";
-
-  return $schema;
-}
-
-/**
- * Displays the shipping label for printing.
- *
- * Each argument is a component of the file path to the image.
- *
- * @ingroup themeable
- */
-function theme_uc_ups_label_image() {
-  $args = explode('/', $_GET['q'], 7);
-  if (count($args) != 7) {
-    return MENU_NOT_FOUND;
-  }
-
-  $image_path = file_stream_wrapper_uri_normalize($args[6]);
-
-  $output = <<<EOLABEL
-<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 3.2//EN">
-<html>
-<head>
-<title>View/Print Label</title>
-<style>
-  .small-text {font-size: 80%;}
-  .large-text {font-size: 115%;}
-</style>
-</head>
-<body bgcolor="#FFFFFF">
-<table border="0" cellpadding="0" cellspacing="0" width="600"><tr>
-<td height="410" align="left" valign="top">
-<b class="large-text">View/Print Label</b>
-&nbsp;<br />
-<ol class="small-text"> <li><b>Print the label:</b> &nbsp;
-Select Print from the File menu in this browser window to print the label below.<br /><br /><li><b>
-Fold the printed label at the dotted line.</b> &nbsp;
-Place the label in a UPS Shipping Pouch. If you do not have a pouch, affix the folded label using clear plastic shipping tape over the entire label.<br /><br /><li><b>GETTING YOUR SHIPMENT TO UPS<br />
-Customers without a Daily Pickup</b><ul><li>Ground, 3 Day Select, and Standard to Canada shipments must be dropped off at an authorized UPS location, or handed to a UPS driver. Pickup service is not available for these services. To find the nearest drop-off location, select the Drop-off icon from the UPS tool bar.<li>
-Air shipments (including Worldwide Express and Expedited) can be picked up or dropped off. To schedule a pickup, or to find a drop-off location, select the Pickup or Drop-off icon from the UPS tool bar.  </ul> <br />
-<b>Customers with a Daily Pickup</b><ul><li>
-Your driver will pickup your shipment(s) as usual. </ul>
-</ol></td></tr></table><table border="0" cellpadding="0" cellspacing="0" width="600">
-<tr>
-<td class="small-text" align="left" valign="top">
-&nbsp;&nbsp;&nbsp;
-FOLD HERE</td>
-</tr>
-<tr>
-<td align="left" valign="top"><hr />
-</td>
-</tr>
-</table>
-
-<table>
-<tr>
-<td height="10">&nbsp;
-</td>
-</tr>
-</table>
-
-<table border="0" cellpadding="0" cellspacing="0" width="650" ><tr>
-<td align="left" valign="top">
-<img src="$image_path" height="392" width="672">
-</td>
-</tr></table>
-</body>
-</html>
-EOLABEL;
-
-  print $output;
-  exit();
 }

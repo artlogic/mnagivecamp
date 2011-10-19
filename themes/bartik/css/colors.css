@@ -1,4 +1,3 @@
-/* $Id: colors.css,v 1.10 2011/01/04 05:24:13 webchick Exp $ */
 
 /* ---------- Color Module Styles ----------- */
 
@@ -9,7 +8,7 @@ body.overlay {
 .comment .comment-arrow {
   border-color: #ffffff;
 }
-
+#page,
 #main-wrapper,
 #main-menu-links li a.active,
 #main-menu-links li.active-trail a {
@@ -23,8 +22,13 @@ body.overlay {
   border-bottom: 1px solid #ffffff;
 }
 #header {
-background-color:none!important;
-background-image:none!important;
+  background-color: #48a9e4;
+  background-image: -moz-linear-gradient(top, #0779bf 0%, #48a9e4 100%);
+  background-image: -ms-linear-gradient(top, #0779bf 0%, #48a9e4 100%);
+  background-image: -o-linear-gradient(top, #0779bf 0%, #48a9e4 100%);
+  background-image: -webkit-gradient(linear, left top, left bottom, color-stop(0, #0779bf), color-stop(1, #48a9e4));
+  background-image: -webkit-linear-gradient(top, #0779bf 0%, #48a9e4 100%);
+  background-image: linear-gradient(top, #0779bf 0%, #48a9e4 100%);
 }
 a {
   color: #0071B3;

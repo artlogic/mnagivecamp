@@ -220,27 +220,6 @@ function styles_update_7209() {
 }
 
 /**
- * Delete duplicate entries from the styles table.
- */
-function styles_update_7210() {
-  $names = db_query("SELECT name, COUNT(*) as repetitions FROM {styles} GROUP BY name HAVING repetitions > 1")->fetchCol();
-  foreach ($names as $name) {
-    $sids = db_select('styles')
-      ->fields('styles', array('sid', 'name'))
-      ->condition('name', $name)
-      ->orderBy('sid', 'DESC')
-      ->execute()
-      ->fetchCol();
-    array_shift($sids);
-    foreach ($sids as $sid) {
-      db_delete('styles')
-        ->condition('sid', $sid)
-        ->execute();
-    }
-  }
-}
-
-/**
  * Drop style_effects table.
  */
 function styles_update_7211() {
@@ -365,6 +344,27 @@ function styles_update_7214() {
     }
     if ($update_instance) {
       field_update_instance($instance);
+    }
+  }
+}
+
+/**
+ * Delete duplicate entries from the styles table.
+ */
+function styles_update_7215() {
+  $names = db_query("SELECT name FROM {styles} GROUP BY name HAVING COUNT(*) > 1")->fetchCol();
+  foreach ($names as $name) {
+    $sids = db_select('styles')
+      ->fields('styles', array('sid', 'name'))
+      ->condition('name', $name)
+      ->orderBy('sid', 'DESC')
+      ->execute()
+      ->fetchCol();
+    array_shift($sids);
+    foreach ($sids as $sid) {
+      db_delete('styles')
+        ->condition('sid', $sid)
+        ->execute();
     }
   }
 }

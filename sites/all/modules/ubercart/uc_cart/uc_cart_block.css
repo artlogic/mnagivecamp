@@ -1,9 +1,9 @@
-
 /**
  * @file
  * Styles for the uc_cart module cart block.
  */
-.cart-block-icon-full, .cart-block-icon-empty {
+.cart-block-icon-full,
+.cart-block-icon-empty {
   display: inline;
   height: 7px;
   padding: 4px 12px 0;
@@ -69,7 +69,8 @@
   vertical-align: top;
 }
 
-.cart-block-items tr.odd, .cart-block-items tr.even {
+.cart-block-items tr.odd,
+.cart-block-items tr.even {
   background-color: inherit;
   border: none;
 }

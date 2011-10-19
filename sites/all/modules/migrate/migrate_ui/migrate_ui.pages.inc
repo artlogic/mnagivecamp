@@ -5,9 +5,17 @@
  */
 
 /**
- * Menu callback for dashboard page
+ * Menu callback
  */
 function migrate_ui_dashboard() {
+  drupal_set_title(t('Migrate'));
+  return drupal_get_form('migrate_ui_dashboard_form');
+}
+
+/**
+ * Form for reviewing migrations.
+ */
+function migrate_ui_dashboard_form($form, &$form_state) {
   $build = array();
 
   $build['overview'] = array(
@@ -17,15 +25,15 @@ function migrate_ui_dashboard() {
   );
 
   $header = array(
-    array('data' => t('Status')),
-    array('data' => t('Migration')),
-    array('data' => t('Total rows')),
-    array('data' => t('Imported')),
-    array('data' => t('Unimported')),
-    array('data' => t('Messages')),
-    array('data' => t('Throughput')),
-    array('data' => t('Last imported')),
-    );
+    'status' => array('data' => t('Status')),
+    'machinename' => array('data' => t('Migration')),
+    'importrows' => array('data' => t('Total rows')),
+    'imported' => array('data' => t('Imported')),
+    'unimported' => array('data' => t('Unimported')),
+    'messages' => array('data' => t('Messages')),
+    'lastthroughput' => array('data' => t('Throughput')),
+    'lastimported' => array('data' => t('Last imported')),
+  );
 
   $migrations = migrate_migrations();
 
@@ -111,19 +119,244 @@ function migrate_ui_dashboard() {
       $row['lastthroughput'] = t('N/A');
     }
     $row['lastimported'] = $migration->getLastImported();
-    $rows[] = $row;
+    $rows[$machine_name] = $row;
   }
 
   $build['dashboard'] = array(
-    '#theme' => 'table',
+    '#type' => 'tableselect',
     '#header' => $header,
-    '#rows' => $rows,
-    '#attached' => array(
-      'css' => array(drupal_get_path('module', 'migrate_ui') . '/migrate_ui.css'),
-    ),
+    '#options' => $rows,
     '#empty' => t('No migrations'),
   );
+
+  // Build the 'Update options' form.
+  $build['operations'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Operations'),
+    '#attributes' => array('class' => array('container-inline')),
+  );
+  $options = array(
+    'import' => t('Import'),
+    'rollback' => t('Rollback'),
+    'rollback_and_import' => t('Rollback and import'),
+    'stop' => t('Stop'),
+    'reset' => t('Reset'),
+  );
+  $build['operations']['operation'] = array(
+    '#type' => 'select',
+    '#title' => t('Operation'),
+    '#title_display' => 'invisible',
+    '#options' => $options,
+  );
+  $build['operations']['limit'] = array(
+    '#tree' => TRUE,
+    'value' => array(
+      '#type' => 'textfield',
+      '#title' => t('Limit to:'),
+      '#size' => 10,
+    ),
+    'unit' => array(
+      '#type' => 'select',
+      '#options' => array(
+        'items' => t('items'),
+        'seconds' => t('seconds'),
+      ),
+    ),
+  );
+  $build['operations']['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Execute'),
+    '#validate' => array('migrate_ui_dashboard_validate'),
+    '#submit' => array('migrate_ui_dashboard_submit'),
+  );
+  $build['operations']['description'] = array(
+    '#prefix' => '<p>',
+    '#markup' => t(
+      'Choose an operation to run on all migrations selected above:
+       <ul>
+         <li>Import - Imports all previously unimported records from the source, plus
+             any records marked for update, into destination Drupal objects.</li>
+         <li>Rollback - Deletes all Drupal objects created by the migration.</li>
+         <li>Rollback and import - Performs the Rollback operation, immediately
+             followed by the Import operation.</li>
+         <li>Stop - Cleanly interrupts any import or rollback processes that may
+             currently be running.</li>
+         <li>Reset - Sometimes a migration process may fail to stop cleanly, and be
+             left stuck in an Importing or Rolling Back status. Choose Reset to clear
+             the status and permit other operations to proceed.</li>
+       </ul>'
+    ),
+    '#postfix' => '</p>',
+  );
+
   return $build;
+}
+
+/**
+ * Validate callback for the dashboard form.
+ */
+function migrate_ui_dashboard_validate($form, &$form_state) {
+  // Error if there are no items to select.
+  if (!is_array($form_state['values']['dashboard']) || !count(array_filter($form_state['values']['dashboard']))) {
+    form_set_error('', t('No items selected.'));
+  }
+}
+
+/**
+ * Submit callback for the dashboard form.
+ */
+function migrate_ui_dashboard_submit($form, &$form_state) {
+  $operation = $form_state['values']['operation'];
+  $limit = $form_state['values']['limit'];
+  $machine_names = array_filter($form_state['values']['dashboard']);
+  $operations = array();
+
+  // Rollback in reverse order.
+  if (in_array($operation, array('rollback', 'rollback_and_import'))) {
+    $machine_names = array_reverse($machine_names);
+    foreach ($machine_names as $machine_name) {
+      $operations[] = array('migrate_ui_batch', array('rollback', $machine_name, $limit));
+    }
+    // Reset order of machines names in preparation for final operation.
+    $machine_names = array_reverse($machine_names);
+    $operation = $operation == 'rollback_and_import' ? 'import' : NULL;
+  }
+
+  // Perform non-rollback operation, if one exists.
+  if ($operation) {
+    foreach ($machine_names as $machine_name) {
+      $operations[] = array('migrate_ui_batch', array($operation, $machine_name, $limit));
+    }
+  }
+
+  $batch = array(
+    'operations' => $operations,
+    'title' => t('Migration processing'),
+    'file' => drupal_get_path('module', 'migrate_ui') . '/migrate_ui.pages.inc',
+    'init_message' => t('Starting migration process'),
+    'progress_message' => t(''),
+    'error_message' => t('An error occurred. Some or all of the migrate processing has failed.'),
+    'finished' => 'migrate_ui_batch_finish',
+  );
+  batch_set($batch);
+}
+
+/**
+ * Process all enabled migration processes in a browser, using the Batch API
+ * to break it into manageable chunks.
+ *
+ * @param $operation
+ *  Operation to perform - 'import', 'rollback', 'stop', or 'reset'.
+ * @param $machine_name
+ *  Machine name of migration to process.
+ * @param $limit
+ *  An array indicating the number of items to import or rollback, or the
+ *  number of seconds to process. Should include 'unit' (either 'items' or
+ *  'seconds') and 'value'.
+ * @param $context
+ *  Batch API context structure
+ */
+function migrate_ui_batch($operation, $machine_name, $limit, &$context) {
+  // If we got a stop message, skip everything else
+  if (isset($context['results']['stopped'])) {
+    $context['finished'] = 1;
+    return;
+  }
+
+  $migration = Migration::getInstance($machine_name);
+
+  // Messages generated by migration processes will be captured in this global
+  global $_migrate_messages;
+  $_migrate_messages = array();
+  $migration->setOutputFunction('migrate_ui_capture_message');
+
+  // Perform the requested operation
+  switch ($operation) {
+    case 'import':
+      $result = $migration->processImport(array('limit' => $limit));
+      break;
+    case 'rollback':
+      $result = $migration->processRollback(array('limit' => $limit));
+      break;
+    case 'stop':
+      $migration->stopProcess();
+      $result = Migration::RESULT_COMPLETED;
+      break;
+    case 'reset':
+      $migration->resetStatus();
+      $result = Migration::RESULT_COMPLETED;
+      break;
+  }
+
+  switch ($result) {
+    case Migration::RESULT_INCOMPLETE:
+      // Default to half-done, in case we can't get a more precise fix
+      $context['finished'] = .5;
+      if (method_exists($migration, 'sourceCount')) {
+        $total = $migration->sourceCount();
+        if ($total && method_exists($migration, 'importedCount')) {
+          $imported = $migration->importedCount();
+          switch ($operation) {
+            case 'import':
+              $context['finished'] = $imported/$total;
+              break;
+            case 'rollback':
+              $context['finished'] = ($total-$imported)/$total;
+              break;
+          }
+        }
+      }
+      break;
+    case MigrationBase::RESULT_SKIPPED:
+      $_migrate_messages[] = t('Skipped !name due to unfulfilled dependencies',
+        array('!name' => $machine_name));
+      $context['finished'] = 1;
+      break;
+    case MigrationBase::RESULT_STOPPED:
+      $context['finished'] = 1;
+      // Skip any further operations
+      $context['results']['stopped'] = TRUE;
+      break;
+    default:
+      $context['finished'] = 1;
+      break;
+  }
+
+  // Add any messages generated in this batch to the cumulative list
+  foreach ($_migrate_messages as $message) {
+    $context['results'][] = $message;
+  }
+
+  // While in progress, show the cumulative list of messages
+  $full_message = '';
+  foreach ($context['results'] as $message) {
+    $full_message .= $message . '<br />';
+  }
+  $context['message'] = $full_message;
+}
+
+/**
+ * Batch API finished callback - report results
+ *
+ * @param $success
+ *  Ignored
+ * @param $results
+ *  List of results from batch processing
+ * @param $operations
+ *  Ignored
+ */
+function migrate_ui_batch_finish($success, $results, $operations) {
+  unset($results['stopped']);
+  foreach ($results as $result) {
+    drupal_set_message($result);
+  }
+}
+
+function migrate_ui_capture_message($message, $level) {
+  if ($level != 'debug') {
+    global $_migrate_messages;
+    $_migrate_messages[] = $message;
+  }
 }
 
 /**
@@ -218,29 +451,26 @@ function migrate_migration_info($form, $form_state, $migration) {
 
   foreach ($team as $group => $list) {
     $form['overview'][$group] = array(
-      '#theme' => 'item_list',
+      '#type' => 'item',
       '#title' => $group,
-      '#attributes' => array('id' => 'team'),
-      '#items' => $list,
+      '#markup' => implode(', ', $list),
     );
   }
 
   $dependencies = $migration->getHardDependencies();
   if (count($dependencies) > 0) {
     $form['overview']['dependencies'] = array(
-      '#prefix' => '<div>',
-      '#markup' => '<strong>' . t('Dependencies: ') . '</strong>' .
-         implode(', ', $dependencies),
-      '#suffix' => '</div>',
+      '#title' => t('Dependencies') ,
+      '#markup' => implode(', ', $dependencies),
+      '#type' => 'item',
     );
   }
   $soft_dependencies = $migration->getSoftDependencies();
   if (count($soft_dependencies) > 0) {
     $form['overview']['soft_dependencies'] = array(
-      '#prefix' => '<div>',
-      '#markup' => '<strong>' . t('Soft Dependencies: ') . '</strong>' .
-         implode(', ', $soft_dependencies),
-      '#suffix' => '</div>',
+      '#title' => t('Soft Dependencies'),
+      '#markup' => implode(', ', $soft_dependencies),
+      '#type' => 'item',
     );
   }
 
@@ -257,16 +487,16 @@ function migrate_migration_info($form, $form_state, $migration) {
         break;
     }
     $form['overview']['system_of_record'] = array(
-      '#prefix' => '<div>',
-      '#markup' => '<strong>' . t('System of record: ') . '</strong>' . $system_of_record,
-      '#suffix' => '</div>',
+      '#type' => 'item',
+      '#title' => t('System of record: '),
+      '#markup' => $system_of_record,
     );
   }
 
   $form['overview']['description'] = array(
-    '#prefix' => '<div>',
+    '#title' => t('Description: '),
     '#markup' => $migration->getDescription(),
-    '#suffix' => '</div>',
+    '#type' => 'item',
   );
 
   if ($has_mappings) {
@@ -427,4 +657,134 @@ function migrate_migration_info($form, $form_state, $migration) {
     }
   }
   return $form;
+}
+
+/**
+ * Menu callback
+ */
+function migrate_ui_configure() {
+  drupal_set_title(t('Migrate configuration'));
+  return drupal_get_form('migrate_ui_configure_form');
+}
+
+/**
+ * Form for reviewing migrations.
+ */
+function migrate_ui_configure_form($form, &$form_state) {
+  $build = array();
+  $build['description'] = array(
+    '#prefix' => '<div>',
+    '#markup' => t('In some cases, such as when a handler for a contributed module is
+      implemented in both migrate_extras and the module itself, you may need to disable
+      a particular handler. In this case, you may uncheck the undesired handler below.'),
+    '#suffix' => '</div>',
+  );
+
+  $build['destination'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Destination handlers'),
+    '#collapsible' => TRUE,
+  );
+
+  $header = array(
+    'module' => array('data' => t('Module')),
+    'class' => array('data' => t('Class')),
+    'types' => array('data' => t('Destination types handled')),
+  );
+
+  $disabled = unserialize(variable_get('migrate_disabled_handlers', serialize(array())));
+  $class_list = _migrate_class_list('MigrateDestinationHandler');
+  $rows = array();
+  $default_values = array();
+  foreach ($class_list as $class_name => $handler) {
+    $row = array();
+    $module = db_select('registry', 'r')
+              ->fields('r', array('module'))
+              ->condition('name', $class_name)
+              ->condition('type', 'class')
+              ->execute()
+              ->fetchField();
+    $row['module'] = $module;
+    $row['class'] = $class_name;
+    $row['types'] = implode(', ', $handler->getTypesHandled());
+    $default_values[$class_name] = !in_array($class_name, $disabled);
+    $rows[$class_name] = $row;
+  }
+  $build['destination']['destination_handlers'] = array(
+    '#type' => 'tableselect',
+    '#header' => $header,
+    '#options' => $rows,
+    '#default_value' => $default_values,
+    '#empty' => t('No destination handlers found'),
+  );
+
+  $build['field'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Field handlers'),
+    '#collapsible' => TRUE,
+  );
+
+  $header = array(
+    'module' => array('data' => t('Module')),
+    'class' => array('data' => t('Class')),
+    'types' => array('data' => t('Field types handled')),
+  );
+
+  $class_list = _migrate_class_list('MigrateFieldHandler');
+  $rows = array();
+  $default_values = array();
+  foreach ($class_list as $class_name => $handler) {
+    $row = array();
+    $module = db_select('registry', 'r')
+              ->fields('r', array('module'))
+              ->condition('name', $class_name)
+              ->condition('type', 'class')
+              ->execute()
+              ->fetchField();
+    $row['module'] = $module;
+    $row['class'] = $class_name;
+    $row['types'] = implode(', ', $handler->getTypesHandled());
+    $default_values[$class_name] = !in_array($class_name, $disabled);
+    $rows[$class_name] = $row;
+  }
+  $build['field']['field_handlers'] = array(
+    '#type' => 'tableselect',
+    '#header' => $header,
+    '#options' => $rows,
+    '#default_value' => $default_values,
+    '#empty' => t('No field handlers found'),
+  );
+
+  $build['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Save handler statuses'),
+    '#submit' => array('migrate_ui_configure_submit'),
+  );
+
+  return $build;
+}
+
+/**
+ * Submit callback for the dashboard form.
+ */
+function migrate_ui_configure_submit($form, &$form_state) {
+  $disabled = array();
+  foreach ($form_state['values']['destination_handlers'] as $class => $value) {
+    if (!$value) {
+      $disabled[] = $class;
+    }
+  }
+  foreach ($form_state['values']['field_handlers'] as $class => $value) {
+    if (!$value) {
+      $disabled[] = $class;
+    }
+  }
+  variable_set('migrate_disabled_handlers', serialize($disabled));
+  if (!empty($disabled)) {
+    drupal_set_message(t('The following handler classes are disabled: !classes',
+      array('!classes' => implode(', ', $disabled))));
+  }
+  else {
+    drupal_set_message(t('No handler classes are currently disabled.'));
+  }
 }

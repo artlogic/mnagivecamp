@@ -1,8 +1,32 @@
-
 /**
  * @file
  * Styles for uc_order module.
  */
+
+.view-uc-orders .views-exposed-form .form-item {
+  padding-top: 4px;
+}
+
+.view-uc-orders #edit-order-id {
+  width: 10em;
+}
+
+.view-uc-orders tbody tr:hover {
+  background-color: #DDD;
+}
+
+.view-uc-orders tbody td.views-field-actions img {
+  padding: 3px 3px 0;
+}
+
+.view-uc-orders tbody td.views-field-order-total {
+  text-align: right;
+}
+
+.view-uc-orders tbody td.views-field-created {
+  text-align: center;
+}
+
 .order-overview-form {
   float: left;
   padding: 0em 2em 0em 0em;
@@ -12,7 +36,8 @@
   margin-bottom: 0em;
 }
 
-.order-overview-form #uc-order-select-form, .order-overview-form #uc-order-admin-sort-form {
+.order-overview-form #uc-order-select-form,
+.order-overview-form #uc-order-admin-sort-form {
   margin-bottom: 0em;
 }
 
@@ -25,8 +50,9 @@
   white-space: nowrap;
 }
 
-.uc-orders-table tr.odd:hover, .uc-orders-table tr.even:hover {
-  background-color: #ddd;
+.uc-orders-table tr.odd:hover,
+.uc-orders-table tr.even:hover {
+  background-color: #DDD;
 }
 
 .uc-orders-table img {
@@ -45,17 +71,16 @@
 }
 
 .order-pane {
-  border-color: #bbb;
+  border-color: #BBB;
   border-style: solid;
   border-width: 1px;
   line-height: 1.1em;
-  margin: .5em;;
+  margin: .5em;
   padding: .5em;
-  width: auto;
 }
 
 .order-pane thead {
-  background-color: #ddd;
+  background-color: #DDD;
 }
 
 .order-pane tbody {
@@ -72,8 +97,12 @@
 }
 
 .abs-left {
-  /*float: left;*/
   clear: left;
+}
+
+.order-pane.abs-left {
+  border: 0;
+  padding: .5em 0;
 }
 
 .pos-right {
@@ -101,13 +130,22 @@
   width: 100%;
 }
 
+.order-pane .uc-store-address-field .form-item {
+  padding: 0;
+}
+
+.order-pane .uc-store-address-field .form-item label {
+  padding: 2px 4px;
+  width: 12em;
+}
+
 .order-pane-table {
   width: 100%;
 }
 
 .order-pane-table thead th {
-  background-color: #ddd;
-  border-color: #bbb;
+  background-color: #DDD;
+  border-color: #BBB;
   border-style: solid;
   border-width: 0px 0px 2px 0px;
   font-weight: bold;
@@ -115,12 +153,13 @@
 }
 
 .order-pane-table tr {
-  border-color: #bbb;
+  border-color: #BBB;
   border-style: solid;
   border-width: 0px 0px 1px 0px;
 }
 
-.order-pane-table tr.odd td, .order-pane-table tr.even td {
+.order-pane-table tr.odd td,
+.order-pane-table tr.even td {
   padding: 4px 8px;
 }
 
@@ -138,7 +177,7 @@
 }
 
 .address-select-box {
-  background-color: #ddd;
+  background-color: #DDD;
   border: solid 1px #999;
   margin-bottom: 1em;
   padding-bottom: 1em;
@@ -147,28 +186,10 @@
 }
 
 .customer-select-box {
-  background-color: #ddd;
+  background-color: #DDD;
   border: solid 1px #999;
   margin-top: 1em;
   padding: 1em;
-  width: auto;
-}
-
-.product-select-box {
-  background-color: #ddd;
-  border: solid 1px #999;
-  margin-bottom: 1em;
-  margin-right: auto;
-  width: auto;
-}
-
-.product-select-box2 {
-  background-color: #ddd;
-  border: solid 1px #999;
-  margin-bottom: 1em;
-  margin-right: auto;
-  padding-bottom: 1em;
-  padding-left: 1em;
   width: auto;
 }
 
@@ -224,7 +245,8 @@
   padding-right: 1em;
 }
 
-.update-controls div, .update-controls label {
+.update-controls div,
+.update-controls label {
   display: inline;
 }
 

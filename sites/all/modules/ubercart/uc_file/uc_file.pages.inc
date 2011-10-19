@@ -28,6 +28,8 @@ define('UC_FILE_ERROR_EXPIRED'                , 6);
 define('UC_FILE_ERROR_HOOK_ERROR'             , 7);
 
 /**
+ * Themes user file downloads page.
+ *
  * @param $files
  *   Array of the files.
  *
@@ -41,7 +43,7 @@ function theme_uc_file_user_downloads($variables) {
   $row = 0;
   foreach ($files as $file) {
     $rows[] = array(
-      array('data' => format_date($file['granted'], 'custom', variable_get('uc_date_format_default', 'm/d/Y')), 'class' => array('date-row'), 'id' => 'date-' . $row),
+      array('data' => format_date($file['granted'], 'uc_store'), 'class' => array('date-row'), 'id' => 'date-' . $row),
       array('data' => $file['link'], 'class' => array('filename-row'), 'id' => 'filename-' . $row),
       array('data' => $file['description'], 'class' => array('description-row'), 'id' => 'description-' . $row),
       array('data' => $file['accessed'] . '/' . ($file['download_limit'] ? $file['download_limit'] : t('Unlimited')), 'class' => array('download-row'), 'id' => 'download-' . $row),
@@ -53,7 +55,7 @@ function theme_uc_file_user_downloads($variables) {
     $rows[] = array(array('data' => t('No downloads found'), 'colspan' => 5));
   }
 
-  $output = theme('table', array('header' => $header, 'rows' => $rows));
+  $output  = theme('table', array('header' => $header, 'rows' => $rows));
   $output .= theme('pager');
   $output .= '<div class="form-item"><p class="description">' .
   t('Once your download is finished, you must refresh the page to download again. (Provided you have permission)') .
@@ -64,7 +66,7 @@ function theme_uc_file_user_downloads($variables) {
 }
 
 /**
- * Table builder for user downloads
+ * Table builder for user downloads.
  */
 function uc_file_user_downloads($account) {
   // Create a header and the pager it belongs to.
@@ -123,7 +125,7 @@ function uc_file_user_downloads($account) {
 
     // Expiration set to 'never'
     if ($file->expiration == FALSE) {
-      $file_link = l(basename($file->filename), 'download/' . $file->fid . '/' . $file->file_key, $onclick);
+      $file_link = l(basename($file->filename), 'download/' . $file->fid, $onclick);
     }
 
     // Expired.
@@ -133,7 +135,7 @@ function uc_file_user_downloads($account) {
 
     // Able to be downloaded.
     else {
-      $file_link = l(basename($file->filename), 'download/' . $file->fid . '/' . $file->file_key, $onclick) . ' (' . t('expires on @date', array('@date' => format_date($file->expiration, 'custom', variable_get('uc_date_format_default', 'm/d/Y')))) . ')';
+      $file_link = l(basename($file->filename), 'download/' . $file->fid, $onclick) . ' (' . t('expires on @date', array('@date' => format_date($file->expiration, 'uc_store'))) . ')';
     }
 
     $files[] = array(
@@ -156,7 +158,7 @@ function uc_file_user_downloads($account) {
 }
 
 /**
- * Handle file downloading and error states.
+ * Handles file downloading and error states.
  *
  * @param $fid
  *   The fid of the file specified to download.
@@ -165,25 +167,30 @@ function uc_file_user_downloads($account) {
  *
  * @see _uc_file_download_validate()
  */
-function _uc_file_download($fid, $key) {
+function _uc_file_download($fid) {
   global $user;
 
   // Error messages for various failed download states.
   $admin_message = t('Please contact the site administrator if this message has been received in error.');
   $error_messages = array(
-    UC_FILE_ERROR_NOT_A_FILE              => t('The file you requested does not exist. '),
-    UC_FILE_ERROR_TOO_MANY_BOGUS_REQUESTS => t('You have attempted to download an incorrect file URL too many times. '),
-    UC_FILE_ERROR_INVALID_DOWNLOAD        => t("The following URL is not a valid download link. "),
-    UC_FILE_ERROR_TOO_MANY_LOCATIONS      => t('You have downloaded this file from too many different locations. '),
-    UC_FILE_ERROR_TOO_MANY_DOWNLOADS      => t('You have reached the download limit for this file. '),
-    UC_FILE_ERROR_EXPIRED                 => t("This file download has expired. "),
-    UC_FILE_ERROR_HOOK_ERROR              => t("A hook denied your access to this file. "),
+    UC_FILE_ERROR_NOT_A_FILE              => t('The file you requested does not exist.'),
+    UC_FILE_ERROR_TOO_MANY_BOGUS_REQUESTS => t('You have attempted to download an incorrect file URL too many times.'),
+    UC_FILE_ERROR_INVALID_DOWNLOAD        => t('The following URL is not a valid download link.') . ' ',
+    UC_FILE_ERROR_TOO_MANY_LOCATIONS      => t('You have downloaded this file from too many different locations.'),
+    UC_FILE_ERROR_TOO_MANY_DOWNLOADS      => t('You have reached the download limit for this file.'),
+    UC_FILE_ERROR_EXPIRED                 => t('This file download has expired.') . ' ',
+    UC_FILE_ERROR_HOOK_ERROR              => t('A hook denied your access to this file.') . ' ',
   );
 
   $ip = ip_address();
-  $file_download = uc_file_get_by_key($key);
+  $file_download = uc_file_get_by_uid($user->uid, $fid);
 
-  $file_download->full_path = uc_file_qualify_file($file_download->filename);
+  if (isset($file_download->filename)) {
+    $file_download->full_path = uc_file_qualify_file($file_download->filename);
+  }
+  else {
+    return MENU_ACCESS_DENIED;
+  }
 
   // If it's ok, we push the file to the user.
   $status = _uc_file_download_validate($file_download, $user, $ip);
@@ -217,7 +224,7 @@ function _uc_file_download_validate($file_download, &$user, $ip) {
   $request_cache = cache_get('uc_file_' . $ip);
   $requests = ($request_cache) ? $request_cache->data + 1 : 1;
 
-  $message_user = ($user->uid) ? t('The user %username ', array('%username' => format_username($user))) : t('The IP address %ip ', array('%ip' => $ip));
+  $message_user = ($user->uid) ? t('The user %username', array('%username' => format_username($user))) : t('The IP address %ip', array('%ip' => $ip));
 
   if ($requests > UC_FILE_REQUEST_LIMIT) {
     return UC_FILE_ERROR_TOO_MANY_BOGUS_REQUESTS;
@@ -275,7 +282,7 @@ function _uc_file_download_validate($file_download, &$user, $ip) {
 }
 
 /**
- * Sends the file's binary data to a user via HTTP and update the
+ * Sends the file's binary data to a user via HTTP and updates the
  * uc_file_users table.
  *
  * @param $file_user
@@ -298,8 +305,9 @@ function _uc_file_download_transfer($file_user, $ip) {
   $size = filesize($file_user->full_path);
   $mimetype = file_get_mimetype($filename);
 
-  // Workaround for IE filename bug with multiple periods / multiple dots in filename
-  // that adds square brackets to filename - eg. setup.abc.exe becomes setup[1].abc.exe
+  // Workaround for IE filename bug with multiple periods / multiple dots
+  // in filename that adds square brackets to filename -
+  // eg. setup.abc.exe becomes setup[1].abc.exe
   if (strstr($_SERVER['HTTP_USER_AGENT'], 'MSIE')) {
     $filename = preg_replace('/\./', '%2e', $filename, substr_count($filename, '.') - 1);
   }
@@ -310,7 +318,8 @@ function _uc_file_download_transfer($file_user, $ip) {
     list($size_unit, $range_orig) = explode('=', $_SERVER['HTTP_RANGE'], 2);
 
     if ($size_unit == 'bytes') {
-      // Multiple ranges could be specified at the same time, but for simplicity only serve the first range
+      // Multiple ranges could be specified at the same time,
+      // but for simplicity only serve the first range
       // See http://tools.ietf.org/id/draft-ietf-http-range-retrieval-00.txt
       list($range, $extra_ranges) = explode(',', $range_orig, 2);
     }
@@ -321,11 +330,10 @@ function _uc_file_download_transfer($file_user, $ip) {
     list($seek_start, $seek_end) = explode('-', $range, 2);
   }
 
-  // Set start and end based on range (if set), else set defaults and check for invalid ranges.
+  // Set start and end based on range (if set),
+  // else set defaults and check for invalid ranges.
   $seek_end = intval((empty($seek_end)) ? ($size - 1) : min(abs(intval($seek_end)), ($size - 1)));
   $seek_start = intval((empty($seek_start) || $seek_end < abs(intval($seek_start))) ? 0 : max(abs(intval($seek_start)), 0));
-
-  ob_end_clean();
 
   // Only send partial content header if downloading a piece of the file (IE
   // workaround).
@@ -361,10 +369,16 @@ function _uc_file_download_transfer($file_user, $ip) {
     // Push the data to the client.
     print(fread($fp, UC_FILE_BYTE_SIZE));
     flush();
-    ob_flush();
+
+    // Supress PHP notice that occurs when output buffering isn't enabled.
+    // The ob_flush() is needed because if output buffering *is* enabled,
+    // clicking on the file download link won't download anything if the buffer
+    // isn't flushed.
+    @ob_flush();
   }
 
-  // Finished serving the file, close the stream and log the download to the user table
+  // Finished serving the file, close the stream and log the download
+  // to the user table.
   fclose($fp);
 
   _uc_file_log_download($file_user, $ip);
@@ -372,7 +386,7 @@ function _uc_file_download_transfer($file_user, $ip) {
 }
 
 /**
- * Process a file download.
+ * Processes a file download.
  */
 function _uc_file_log_download($file_user, $ip) {
 

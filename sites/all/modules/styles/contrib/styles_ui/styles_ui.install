@@ -38,7 +38,7 @@ function styles_ui_update_7201() {
 /**
  * Change menu.
  */
-function styles_ui_update_7204() {
+function styles_ui_update_7206() {
   menu_rebuild();
   return array();
 }

@@ -1,5 +1,4 @@
 <?php
-// $Id: site_map.install,v 1.6 2010/06/08 04:49:06 frjo Exp $
 
 /**
  * @file
@@ -42,4 +41,14 @@ function site_map_update_7000() {
   variable_del('site_map_message_format');
 
   return t('Successfully upgraded site map message format setting.');
+}
+
+/**
+ * Change block caching mode.
+ */
+function site_map_update_7001() {
+  db_update('block')
+    ->fields(array('cache' => DRUPAL_NO_CACHE))
+    ->condition('module', 'site_map')
+    ->execute();
 }

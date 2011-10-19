@@ -1,5 +1,4 @@
 <?php
-// $Id: views_plugin_argument_validate_taxonomy_term.inc,v 1.6.4.8 2010/12/14 22:32:11 dereine Exp $
 /**
  * @file
  * Contains the 'taxonomy term' argument validator plugin.
@@ -9,7 +8,7 @@
  * Validate whether an argument is an acceptable node.
  */
 class views_plugin_argument_validate_taxonomy_term extends views_plugin_argument_validate {
-  function init(&$view, &$argument, &$options) {
+  function init(&$view, &$argument, $options) {
     parent::init($view, $argument, $options);
 
     // Convert legacy vids option to machine name vocabularies.
@@ -51,7 +50,7 @@ class views_plugin_argument_validate_taxonomy_term extends views_plugin_argument
 
     $form['type'] = array(
       '#type' => 'select',
-      '#title' => t('Argument type'),
+      '#title' => t('Filter value type'),
       '#options' => array(
         'tid' => t('Term ID'),
         'tids' => t('Term IDs separated by , or +'),
@@ -59,19 +58,19 @@ class views_plugin_argument_validate_taxonomy_term extends views_plugin_argument
         'convert' => t('Term name converted to Term ID'),
       ),
       '#default_value' => $this->options['type'],
-      '#description' => t('Select the form of this argument; if using term name, it is generally more efficient to convert it to a term ID and use Taxonomy: Term ID rather than Taxonomy: Term Name" as an argument.'),
+      '#description' => t('Select the form of this filter value; if using term name, it is generally more efficient to convert it to a term ID and use Taxonomy: Term ID rather than Taxonomy: Term Name" as the filter.'),
     );
 
     $form['transform'] = array(
       '#type' => 'checkbox',
-      '#title' => t('Transform dashes in URL to spaces in term name arguments'),
+      '#title' => t('Transform dashes in URL to spaces in term name filter values'),
       '#default_value' => $this->options['transform'],
     );
   }
 
-  function options_submit(&$form, &$form_state, &$options) {
+  function options_submit(&$form, &$form_state, &$options = array()) {
     // filter trash out of the options so we don't store giant unnecessary arrays
-    $options['vocabularies'] = array_filter($options['vocabularies']);
+    $form_state['values']['vocabularies'] = array_filter($form_state['values']['vocabularies']);
   }
 
   function convert_options(&$options) {
@@ -178,11 +177,38 @@ class views_plugin_argument_validate_taxonomy_term extends views_plugin_argument
         if ($term && (empty($vocabularies) || !empty($vocabularies[$term->machine_name]))) {
           if ($type == 'convert') {
             $this->argument->argument = $term->tid;
-            $this->argument->validated_title = check_plain($term->name);
           }
+          $this->argument->validated_title = check_plain($term->name);
           return TRUE;
         }
         return FALSE;
+    }
+  }
+
+  function process_summary_arguments(&$args) {
+    $type = $this->options['type'];
+    $transform = $this->options['transform'];
+
+    if ($type == 'convert') {
+      $arg_keys = array_flip($args);
+
+      $query = db_select('taxonomy_term_data', 'td');
+      $query->condition('tid', $args);
+      $query->addField('td', 'tid', 'tid');
+      if (!empty($vocabularies)) {
+        $query->leftJoin('taxonomy_vocabulary', 'tv', 'td.vid = tv.vid');
+        $query->condition('tv.machine_name', $vocabularies);
+      }
+      if ($transform) {
+        $query->addExpression("REPLACE(td.name, ' ', '-')", 'name');
+      }
+      else {
+        $query->addField('td', 'name', 'name');
+      }
+
+      foreach ($query->execute()->fetchAllKeyed() as $tid => $term) {
+        $args[$arg_keys[$tid]] = $term;
+      }
     }
   }
 }

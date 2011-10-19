@@ -30,9 +30,14 @@ class MigrateSourceCSV extends MigrateSource {
    */
   protected $fgetcsv = array();
 
-  protected $mapJoinable = FALSE;
-
   protected $usingHighwater = FALSE;
+
+  /**
+   * The number of rows in the CSV file before the data starts.
+   *
+   * @var integer
+   */
+  protected $headerRows = 0;
 
   /**
    * Simple initialization.
@@ -49,14 +54,40 @@ class MigrateSourceCSV extends MigrateSource {
    *  migration will add via other means (e.g., prepareRow()).
    */
   public function __construct($path, array $csvcolumns = array(), array $options = array(), array $fields = array()) {
-    parent::__construct();
+    parent::__construct($options);
     $this->file = $path;
-    $this->csvcolumns = $csvcolumns;
+    if (!empty($options['header_rows'])) {
+      $this->headerRows = $options['header_rows'];
+    }
+    else {
+      $this->headerRows = 0;
+    }
     $this->options = $options;
     $this->fields = $fields;
     // fgetcsv specific options
     foreach (array('length' => NULL, 'delimiter' => ',', 'enclosure' => '"', 'escape' => '\\') as $key => $default) {
       $this->fgetcsv[$key] = isset($options[$key]) ? $options[$key] : $default;
+    }
+    // One can either pass in an explicit list of column names to use, or if we have
+    // a header row use the names from that
+    if ($this->headerRows && empty($csvcolumns)) {
+      $this->csvcolumns = array();
+      $result = fopen($this->file, 'r');
+      // Skip all but the last header
+      for ($i = 0; $i < $this->headerRows - 1; $i++) {
+        fgets($this->result);
+      }
+
+      $row = fgetcsv($result, $this->fgetcsv['length'], $this->fgetcsv['delimiter'],
+        $this->fgetcsv['enclosure']);
+      foreach ($row as $header) {
+        $header = trim($header);
+        $this->csvcolumns[] = array($header, $header);
+      }
+      fclose($result);
+    }
+    else {
+      $this->csvcolumns = $csvcolumns;
     }
   }
 
@@ -93,17 +124,28 @@ class MigrateSourceCSV extends MigrateSource {
 
   /**
    * Return a count of all available source records.
-   *
-   * @param boolean $refresh
-   *  If TRUE, or if there is no cached count, perform a SQL COUNT query to
-   *  retrieve and cache the number of rows in the query. Otherwise, return
-   *  the last cached value.
-   *
-   *  TODO: Implement caching
    */
-  public function count($refresh = FALSE) {
-    // TODO. If this takes too much time/memory, use exec('wc -l')
-    $count = count(file($this->file));
+  public function computeCount() {
+    // If the data may have embedded newlines, the file line count won't reflect
+    // the number of CSV records (one record will span multiple lines). We need
+    // to scan with fgetcsv to get the true count.
+    if (!empty($this->options['embedded_newlines'])) {
+      $result = fopen($this->file, 'r');
+      // Skip all but the last header
+      for ($i = 0; $i < $this->headerRows; $i++) {
+        fgets($result);
+      }
+      $count = 0;
+      while (fgetcsv($result, $this->fgetcsv['length'], $this->fgetcsv['delimiter'], $this->fgetcsv['enclosure'])) {
+        $count++;
+      }
+      fclose($result);
+    }
+    else {
+      // TODO. If this takes too much time/memory, use exec('wc -l')
+      $count = count(file($this->file));
+      $count -= $this->headerRows;
+    }
     return $count;
   }
 
@@ -115,13 +157,16 @@ class MigrateSourceCSV extends MigrateSource {
     $this->result = NULL;
     $this->currentRow = NULL;
     $this->numProcessed = 0;
-
+    $this->numIgnored = 0;
 
     migrate_instrument_start('MigrateSourceCSV execute');
     $this->result = fopen($this->file, 'r');
     migrate_instrument_stop('MigrateSourceCSV execute');
 
-    // Load up the first row
+    // Load up the first row, skipping the header if necessary
+    for ($i = 0; $i < $this->headerRows; $i++) {
+      fgets($this->result);
+    }
     $this->next();
   }
 
@@ -133,12 +178,10 @@ class MigrateSourceCSV extends MigrateSource {
     $migration = Migration::currentMigration();
     $this->currentRow = NULL;
     $this->currentKey = NULL;
-    // If we couldn't add the itemlimit to the query directly, enforce it here
-    if (!$this->mapJoinable) {
-      $itemlimit = $migration->getOption('itemlimit');
-      if ($itemlimit && $this->numProcessed >= $itemlimit) {
-        return;
-      }
+
+    $itemlimit = $migration->getItemLimit();
+    if ($itemlimit && $this->numProcessed >= $itemlimit) {
+      return;
     }
 
     // get next row
@@ -159,37 +202,37 @@ class MigrateSourceCSV extends MigrateSource {
         $this->currentKey[$field_name] = $this->currentRow->$field_name;
       }
 
-      if (!$this->mapJoinable) {
-        $map_row = $migration->getMap()->getRowBySource($this->currentKey);
-        if (!$map_row) {
-          // Unmigrated row, take it
-        }
-        elseif ($map_row && $map_row['needs_update'] == 1) {
-          // We always want to take this row if needs_update = 1
+      $map_row = $migration->getMap()->getRowBySource($this->currentKey);
+      if (!$map_row) {
+        // Unmigrated row, take it
+      }
+      elseif ($map_row && $map_row['needs_update'] == 1) {
+        // We always want to take this row if needs_update = 1
+      }
+      else {
+        if ($this->usingHighwater) {
+          // With highwater, we want to take this row if it's above the highwater
+          // mark
+          $highwaterField = $migration->getHighwaterField();
+          $highwaterField = $highwaterField['name'];
+          if ($this->currentRow->$highwaterField <= $migration->getHighwater()) {
+            $this->currentRow = NULL;
+            continue;
+          }
         }
         else {
-          if ($this->usingHighwater) {
-            // With highwater, we want to take this row if it's above the highwater
-            // mark
-            $highwaterField = $migration->getHighwaterField();
-            $highwaterField = $highwaterField['name'];
-            if ($this->currentRow->$highwaterField <= $migration->getHighwater()) {
-              continue;
-            }
-          }
-          else {
-            // With no highwater, we want to take this row if it's not in the map table
-            if ($map_row) {
-              continue;
-            }
+          // With no highwater, we want to take this row if it's not in the map table
+          if ($map_row) {
+            $this->currentRow = NULL;
+            continue;
           }
         }
-        // Add map info to the row, if present
-        if ($map_row) {
-          foreach ($map_row as $field => $value) {
-            $field = 'migrate_map_' . $field;
-            $this->currentRow->$field = $value;
-          }
+      }
+      // Add map info to the row, if present
+      if ($map_row) {
+        foreach ($map_row as $field => $value) {
+          $field = 'migrate_map_' . $field;
+          $this->currentRow->$field = $value;
         }
       }
 
@@ -209,6 +252,10 @@ class MigrateSourceCSV extends MigrateSource {
       if ($return !== FALSE) {
         $this->numProcessed++;
         break;
+      }
+      else {
+        $this->currentRow = NULL;
+        $this->numIgnored++;
       }
     }
     if (!is_object($this->currentRow)) {

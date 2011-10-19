@@ -85,9 +85,7 @@ function uc_credit_permission() {
  */
 function uc_credit_theme() {
   return array(
-    'uc_payment_method_credit_form' => array(
-      'render element' => 'form',
-    ),
+    'uc_credit_cvv_help' => array(),
   );
 }
 
@@ -98,21 +96,6 @@ function uc_credit_init() {
   global $conf;
   $conf['i18n_variables'][] = 'uc_credit_fail_message';
   $conf['i18n_variables'][] = 'uc_credit_policy';
-}
-
-/**
- * Implements hook_form_FORM_ID_alter() for uc_payment_methods_form().
- */
-function uc_credit_form_uc_payment_methods_form_alter(&$form, &$form_state) {
-  if (user_access('administer credit cards')) {
-    if (empty($_POST) && uc_credit_encryption_key() === FALSE) {
-      // Report error and expand fieldset so the problem is easy to spot
-      form_set_error('uc_credit_encryption_path', t('Credit card encryption must be configured to accept credit card payments.'));
-      $form['method_credit']['#collapsed'] = FALSE;
-    }
-    $form['#validate'][] = 'uc_credit_settings_form_validate';
-    $form['#submit'][] = 'uc_credit_settings_form_submit';
-  }
 }
 
 /**
@@ -181,42 +164,6 @@ function uc_credit_form_uc_cart_checkout_review_form_alter(&$form, &$form_state)
 }
 
 /**
- * Implements hook_form_FORM_ID_alter() for uc_payment_gateways_form().
- */
-function uc_credit_form_uc_payment_gateways_form_alter(&$form, &$form_state) {
-  // Loop through each of the gateways on the form.
-  foreach (element_children($form['gateways']) as $key) {
-    // Get the transaction types associated with this gateway.
-    $gateway_types = uc_credit_gateway_txn_types($key);
-
-    // Loop through all the available transaction types.
-    $options = array();
-
-    $txn_types = array(
-      UC_CREDIT_AUTH_ONLY => t('Authorization only'),
-      UC_CREDIT_AUTH_CAPTURE => t('Authorize and capture immediately'),
-      UC_CREDIT_REFERENCE_SET => t('Set a reference only'),
-    );
-
-    foreach ($txn_types as $type => $title) {
-      // Add the current one to the options if the gateway supports it.
-      if (in_array($type, $gateway_types)) {
-        $options[$type] = $title;
-      }
-    }
-
-    $form['gateways'][$key]['uc_pg_' . $key . '_cc_txn_type'] = array(
-      '#type' => 'radios',
-      '#title' => t('Default credit transaction type'),
-      '#description' => t('Only available transaction types are listed. The default will be used unless an administrator chooses otherwise through the terminal.'),
-      '#options' => $options,
-      '#default_value' => variable_get('uc_pg_' . $key . '_cc_txn_type', UC_CREDIT_AUTH_CAPTURE),
-      '#weight' => -5,
-    );
-  }
-}
-
-/**
  * Implements hook_cron().
  */
 function uc_credit_cron() {
@@ -239,7 +186,7 @@ function uc_credit_cron() {
       );
 
       // Stuff the serialized and encrypted CC details into the array.
-      $data['cc_data'] = $crypt->encrypt(uc_credit_encryption_key(), serialize($cc_data));
+      $data['cc_data'] = $crypt->encrypt(uc_credit_encryption_key(), base64_encode(serialize($cc_data)));
       uc_store_encryption_errors($crypt, 'uc_credit');
 
       // Save it again.
@@ -291,7 +238,7 @@ function uc_credit_uc_store_status() {
     $statuses[] = array(
       'status' => 'error',
       'title' => t('Credit card encryption'),
-      'desc' => t('You must review your <a href="!url">credit card security settings</a> and enable encryption before you can accept credit card payments.', array('!url' => url('admin/store/settings/payment/edit/methods'))),
+      'desc' => t('You must review your <a href="!url">credit card security settings</a> and enable encryption before you can accept credit card payments.', array('!url' => url('admin/store/settings/payment/method/credit'))),
     );
   }
 
@@ -309,7 +256,7 @@ function uc_credit_uc_store_status() {
 /**
  * Implements hook_uc_order().
  */
-function uc_credit_uc_order($op, &$order, $arg2) {
+function uc_credit_uc_order($op, $order, $arg2) {
   // Set up the encryption key and object for saving and loading.
   if (isset($order->payment_method) && $order->payment_method == 'credit' && ($op == 'save' || $op == 'load')) {
     // Log an error if encryption isn't configured properly.
@@ -333,6 +280,7 @@ function uc_credit_uc_order($op, &$order, $arg2) {
           );
 
           // Attempt to process the CC payment.
+          $order->payment_details = uc_credit_cache('load');
           $pass = uc_payment_process_payment('credit', $order->order_id, $order->order_total, $data, TRUE, NULL, FALSE);
 
           // If the payment failed, store the data back in the session and
@@ -357,21 +305,12 @@ function uc_credit_uc_order($op, &$order, $arg2) {
       if (isset($order->payment_method) && $order->payment_method == 'credit') {
         // Build an array of CC data to store with the order.
         if (!empty($order->payment_details)) {
-          // Check for debug mode.
-          if (variable_get('uc_credit_debug', FALSE) && arg(1) != 'checkout') {
-            // If enabled, store the full payment details.
-            $cc_data = $order->payment_details;
-          }
-          else {
-            // Otherwise, save only some limited, PCI compliant data.
-            $cc_data = array(
-              'cc_number' => substr($order->payment_details['cc_number'], -4),
-              'cc_exp_month' => $order->payment_details['cc_exp_month'],
-              'cc_exp_year' => $order->payment_details['cc_exp_year'],
-            );
-            if (isset($order->payment_details['cc_type'])) {
-              $cc_data['cc_type'] = $order->payment_details['cc_type'];
-            }
+          $cc_data = $order->payment_details;
+
+          // If not in debug mode, save only some limited, PCI compliant data.
+          if (!variable_get('uc_credit_debug', FALSE)) {
+            $cc_data['cc_number'] = substr($cc_data['cc_number'], -4);
+            unset($cc_data['cc_cvv']);
           }
 
           _uc_credit_save_cc_data_to_order($cc_data, $order->order_id);
@@ -409,8 +348,7 @@ function uc_credit_uc_payment_method() {
       $title .= ' <img class="uc-credit-cctype uc-credit-cctype-' . $type . '" src="' . $path . '/images/' . $type . '.gif" style="position: relative; top: 5px;" />';
     }
   }
-  $methods[] = array(
-    'id' => 'credit',
+  $methods['credit'] = array(
     'name' => t('Credit card'),
     'title' => $title,
     'desc' => t('Pay by credit card.'),
@@ -437,6 +375,9 @@ function uc_payment_method_credit($op, &$order, $form = NULL, &$form_state = NUL
       return $details;
 
     case 'cart-process':
+      if (!isset($form_state['values']['panes']['payment']['details']['cc_number'])) {
+        return;
+      }
       // Fetch the CC details from the $_POST directly.
       $cc_data = $form_state['values']['panes']['payment']['details'];
 
@@ -513,7 +454,7 @@ function uc_payment_method_credit($op, &$order, $form = NULL, &$form_state = NUL
 
       // Validate the CVV number if enabled.
       if (variable_get('uc_credit_cvv_enabled', TRUE) && !_uc_credit_valid_cvv($cc_data['cc_cvv'])) {
-        form_set_error('panes][payment][details][cc_ccv', t('You have entered an invalid CVV number.'));
+        form_set_error('panes][payment][details][cc_cvv', t('You have entered an invalid CVV number.'));
         $return = FALSE;
       }
 
@@ -528,7 +469,12 @@ function uc_payment_method_credit($op, &$order, $form = NULL, &$form_state = NUL
       $crypt = new uc_encryption_class;
 
       // Store the encrypted details in the session for the next pageload.
-      $_SESSION['sescrd'] = $crypt->encrypt($key, serialize($order->payment_details));
+      // We are using base64_encode() because the encrypt function works with a
+      // limited set of characters, not supporting the full Unicode character
+      // set or even extended ASCII characters that may be present.
+      // base64_encode() converts everything to a subset of ASCII, ensuring that
+      // the encryption algorithm does not mangle names.
+      $_SESSION['sescrd'] = $crypt->encrypt($key, base64_encode(serialize($order->payment_details)));
 
       // Log any errors to the watchdog.
       uc_store_encryption_errors($crypt, 'uc_credit');
@@ -557,9 +503,6 @@ function uc_payment_method_credit($op, &$order, $form = NULL, &$form_state = NUL
       if (variable_get('uc_credit_issue_enabled', FALSE)) {
         $review[] = array('title' => t('Issue Number'), 'data' => user_access('view cc numbers') ? $order->payment_details['cc_issue'] : str_repeat('-', strlen($order->payment_details['cc_issue'])));
       }
-      if (variable_get('uc_credit_cvv_enabled', TRUE)) {
-        $review[] = array('title' => t('CVV'), 'data' => user_access('view cc numbers') ? $order->payment_details['cc_cvv'] : str_repeat('-', strlen($order->payment_details['cc_cvv'])));
-      }
       if (variable_get('uc_credit_bank_enabled', FALSE)) {
         $review[] = array('title' => t('Issuing Bank'), 'data' => check_plain($order->payment_details['cc_bank']));
       }
@@ -570,71 +513,42 @@ function uc_payment_method_credit($op, &$order, $form = NULL, &$form_state = NUL
 
       // Add the hidden span for the CC details if possible.
       if (user_access('view cc details')) {
-        drupal_add_js(drupal_get_path('module', 'uc_credit') . '/uc_credit.js');
-
         $rows = array();
 
-        if (variable_get('uc_credit_type_enabled', TRUE) && isset($order->payment_details['cc_type'])) {
-          $type = check_plain($order->payment_details['cc_type']);
-          if (strlen($type) > 0) {
-            $rows[] = array(t('Card Type:'), $type);
-          }
+        if (!empty($order->payment_details['cc_type'])) {
+          $rows[] = t('Card Type') . ': ' . check_plain($order->payment_details['cc_type']);
         }
 
-        if (variable_get('uc_credit_owner_enabled', FALSE) && isset($order->payment_details['cc_owner'])) {
-          $owner = check_plain($order->payment_details['cc_owner']);
-          if (strlen($owner) > 0) {
-            $rows[] = array(t('Card Owner:'), $owner);
-          }
+        if (!empty($order->payment_details['cc_owner'])) {
+          $rows[] = t('Card Owner') . ': ' . check_plain($order->payment_details['cc_owner']);
         }
 
-        $rows[] = array(t('Card Number:'), uc_credit_display_number($order->payment_details['cc_number']));
+        $rows[] = t('Card Number') . ': ' . uc_credit_display_number($order->payment_details['cc_number']);
 
-        if (isset($order->payment_details['cc_exp_month']) && isset($order->payment_details['cc_exp_year'])) {
-          $exp = $order->payment_details['cc_exp_month'] . '/' . $order->payment_details['cc_exp_year'];
-          if (strlen($exp) > 1) {
-            $rows[] = array(t('Expiration:'), $exp);
-          }
+        if (!empty($order->payment_details['cc_start_month']) && !empty($order->payment_details['cc_start_year'])) {
+          $rows[] = t('Start Date') . ': ' . $order->payment_details['cc_start_month'] . '/' . $order->payment_details['cc_start_year'];
         }
 
-        if (variable_get('uc_credit_debug', FALSE)) {
-          if (variable_get('uc_credit_start_enabled', FALSE) && isset($order->payment_details['cc_start_month']) && isset($order->payment_details['cc_start_year'])) {
-            $start = $order->payment_details['cc_start_month'] . '/' . $order->payment_details['cc_start_year'];
-            if (strlen($start) > 1) {
-              $rows[] = array(t('Start Date:'), $start);
-            }
-          }
+        if (!empty($order->payment_details['cc_exp_month']) && !empty($order->payment_details['cc_exp_year'])) {
+          $rows[] = t('Expiration') . ': ' . $order->payment_details['cc_exp_month'] . '/' . $order->payment_details['cc_exp_year'];
+        }
 
-          if (variable_get('uc_credit_issue_enabled', FALSE) && isset($order->payment_details['cc_issue'])) {
-            $issue = $order->payment_details['cc_issue'];
-            if (strlen($issue) > 0) {
-              $rows[] = array(t('Issue Number:'), $issue);
-            }
-          }
+        if (!empty($order->payment_details['cc_issue'])) {
+          $rows[] = t('Issue Number') . ': ' . check_plain($order->payment_details['cc_issue']);
+        }
 
-          if (variable_get('uc_credit_cvv_enabled', TRUE) && isset($order->payment_details['cc_cvv'])) {
-            $cvv = user_access('view cc numbers') ? $order->payment_details['cc_cvv'] : str_repeat('-', strlen($order->payment_details['cc_cvv']));
-            if (strlen($cvv) > 0) {
-              $rows[] = array(t('CVV:'), $cvv);
-            }
-          }
+        if (user_access('view cc numbers') && !empty($order->payment_details['cc_cvv'])) {
+          $rows[] = t('CVV') . ': ' . check_plain($order->payment_details['cc_cvv']);
+        }
 
-          if (variable_get('uc_credit_bank_enabled', TRUE) && isset($order->payment_details['cc_bank'])) {
-            $bank = check_plain($order->payment_details['cc_bank']);
-            if (strlen($bank) > 0) {
-              $rows[] = array(t('Issuing Bank:'), $bank);
-            }
-          }
+        if (!empty($order->payment_details['cc_bank'])) {
+          $rows[] = t('Issuing Bank') . ': ' . check_plain($order->payment_details['cc_bank']);
         }
 
         $build['cc_info'] = array(
-          '#theme' => 'table',
-          '#rows' => $rows,
-          '#attributes' => array(
-            'style' => 'width: auto',
-          ),
-          '#prefix' => '<span onclick="toggle_card_details();" style="cursor: pointer;"><a id="cc_details_title" href="" onclick="return false;" style="display: none;">' . t('View card details.') . '</a><span id="cc_details">',
-          '#suffix' => '</span></span>',
+          '#prefix' => '<a href="#" onclick="jQuery(this).hide().next().show();">' . t('Show card details') . '</a><div style="display: none;">',
+          '#markup' => implode('<br />', $rows),
+          '#suffix' => '</div>',
         );
 
         // Add the form to process the card if applicable.
@@ -653,292 +567,15 @@ function uc_payment_method_credit($op, &$order, $form = NULL, &$form_state = NUL
 
     case 'order-details':
       if (variable_get('uc_credit_debug', FALSE)) {
-        $details = drupal_get_form('uc_payment_method_credit_form', $order);
-        return uc_strip_form($details);
+        return uc_payment_method_credit_form(array(), $form_state, $order);
       }
       else {
         return t('Use the terminal available through the<br />%button button on the View tab to<br />process credit card payments.', array('%button' => t('Process card')));
       }
 
-    case 'edit-process':
-      $cache = uc_credit_cache('load');
-
-      $changes['payment_details']['cc_type'] = check_plain($_POST['cc_type']);
-      $changes['payment_details']['cc_owner'] = check_plain($_POST['cc_owner']);
-      if (strpos($_POST['cc_number'], t('(Last 4) ')) !== 0) {
-        $changes['payment_details']['cc_number'] = check_plain($_POST['cc_number']);
-      }
-      else {
-        $changes['payment_details']['cc_number'] = $cache['cc_number'];
-      }
-      $changes['payment_details']['cc_exp_month'] = check_plain($_POST['cc_exp_month']);
-      $changes['payment_details']['cc_exp_year'] = check_plain($_POST['cc_exp_year']);
-      if ($_POST['cc_cvv'] !== str_repeat('-', strlen($_POST['cc_cvv']))) {
-        $changes['payment_details']['cc_cvv'] = check_plain($_POST['cc_cvv']);
-      }
-      else {
-        $changes['payment_details']['cc_cvv'] = $cache['cc_cvv'];
-      }
-      $changes['payment_details']['cc_bank'] = check_plain($_POST['cc_bank']);
-      return $changes;
-
     case 'settings':
-      if (!user_access('administer credit cards')) {
-        $form['notice'] = array(
-          '#markup' => '<div>' . t('You must have access to <b>administer credit cards</b> to adjust these settings.') . '</div>',
-        );
-        return $form;
-      }
-
-      // Form elements that deal specifically with card number security.
-      $form['cc_security'] = array(
-        '#type' => 'fieldset',
-        '#title' => t('Credit card data security'),
-        '#description' => t('You are responsible for the security of your website, including the protection of credit card numbers.  Please be aware that choosing some settings in this section may decrease the security of credit card data on your website and increase your liability for damages in the case of fraud.'),
-        '#collapsible' => FALSE,
-      );
-      $form['cc_security']['uc_credit_encryption_path'] = array(
-        '#type' => 'textfield',
-        '#title' => t('Card number encryption key filepath'),
-        '#description' => t('<b>You must enable encryption</b> by following the <a href="!url">encryption instructions</a> in order to accept credit card payments.<br />In short, you must specify a path outside of your document root where the encryption key may be stored.<br />Relative paths will be resolved relative to the Drupal installation directory.<br />Once this is set, you should not change it.', array('!url' => 'http://www.ubercart.org/docs/user/14512/credit_card_settings#security')),
-        '#default_value' => variable_get('uc_credit_encryption_path', t('Not configured, see below.')),
-      );
-      $form['cc_security']['uc_credit_debug'] = array(
-        '#type' => 'checkbox',
-        '#title' => t('Operate in credit card debug mode.'),
-        '#description' => t('In debug mode, credit card details may be stored in violation of PCI security standards.<br />Debug mode is only recommended for testing transactions with fake credit card details.'),
-        '#default_value' => variable_get('uc_credit_debug', FALSE),
-      );
-
-      // Form elements that deal with the credit card workflow during checkout.
-      $form['cc_workflow'] = array(
-        '#type' => 'fieldset',
-        '#title' => t('Checkout workflow'),
-        '#description' => t('These settings alter the way credit card data is collected and used during checkout.'),
-        '#collapsible' => FALSE,
-      );
-      $form['cc_workflow']['uc_credit_validate_numbers'] = array(
-        '#type' => 'checkbox',
-        '#title' => t('Validate credit card numbers at checkout.'),
-        '#description' => t('Invalid card numbers will show an error message to the user so they can correct it.<br />This feature is recommended unless you are in debug mode.'),
-        '#default_value' => variable_get('uc_credit_validate_numbers', TRUE),
-      );
-      $form['cc_workflow']['uc_credit_checkout_process'] = array(
-        '#type' => 'checkbox',
-        '#title' => t('Attempt to process credit card payments at checkout.'),
-        '#description' => t('Failed attempts will prevent checkout completion and display the error message from above.<br />This box must be checked to process customer credit cards if you are not in debug mode.'),
-        '#default_value' => variable_get('uc_credit_checkout_process', TRUE),
-      );
-
-      // Form elements to handle the automatic clearing of card data.
-      $form['cc_clear'] = array(
-        '#type' => 'fieldset',
-        '#title' => t('Debug mode data clearing'),
-        '#description' => t('Specify below the status and age of orders whose credit card details will be removed.  This setting only applies when operating in debug mode.  When not in debug mode, no credit card information except the last 4 digits of the card number will be stored. <strong>Cron must be running for this feature to work.</strong>', array('!url' => url('admin/store/settings/cart/edit'))),
-        '#collapsible' => FALSE,
-      );
-      foreach (uc_order_status_list() as $status) {
-        $options[$status['id']] = $status['title'];
-      }
-      $form['cc_clear']['uc_credit_clear_status'] = array(
-        '#type' => 'select',
-        '#title' => t('Order status'),
-        '#options' => $options,
-        '#default_value' => variable_get('uc_credit_clear_status', uc_order_state_default('completed')),
-        '#prefix' => '<div style="float: left; margin-right: 1em;">',
-        '#suffix' => '</div>',
-      );
-      $form['cc_clear']['uc_credit_number_duration'] = array(
-        '#type' => 'select',
-        '#title' => t('Age'),
-        '#options' => drupal_map_assoc(range(1, 24)),
-        '#default_value' => variable_get('uc_credit_number_duration', '3'),
-        '#prefix' => '<div style="float: left; margin-right: 1em;">',
-        '#suffix' => '</div>',
-      );
-      $form['cc_clear']['uc_credit_number_unit'] = array(
-        '#type' => 'select',
-        '#title' => t('Unit of time'),
-        '#options' => array(
-          'hours' => t('hour(s)'),
-          'days' => t('day(s)'),
-          'weeks' => t('week(s)'),
-          'years' => t('year(s)'),
-        ),
-        '#default_value' => variable_get('uc_credit_number_unit', 'days'),
-        '#prefix' => '<div style="float: left;">',
-        '#suffix' => '</div>',
-      );
-
-      // Form elements that deal with the type of data requested at checkout.
-      $form['cc_fields'] = array(
-        '#type' => 'fieldset',
-        '#title' => t('Credit card fields'),
-        '#description' => t('Specify what information to collect from customers in addition to the card number.'),
-        '#collapsible' => FALSE,
-      );
-      $form['cc_fields']['uc_credit_cvv_enabled'] = array(
-        '#type' => 'checkbox',
-        '#title' => t('Enable CVV text field on checkout form.'),
-        '#description' => t('The CVV is an added security measure on credit cards. On Visa, Mastercard, and Discover cards it is a three digit number, and on AmEx cards it is a four digit number. If your credit card processor or payment gateway requires this information, you should enable this feature here.'),
-        '#default_value' => variable_get('uc_credit_cvv_enabled', TRUE),
-      );
-      $form['cc_fields']['uc_credit_owner_enabled'] = array(
-        '#type' => 'checkbox',
-        '#title' => t('Enable card owner text field on checkout form.'),
-        '#default_value' => variable_get('uc_credit_owner_enabled', FALSE),
-      );
-      $form['cc_fields']['uc_credit_start_enabled'] = array(
-        '#type' => 'checkbox',
-        '#title' => t('Enable card start date on checkout form.'),
-        '#default_value' => variable_get('uc_credit_start_enabled', FALSE),
-      );
-      $form['cc_fields']['uc_credit_issue_enabled'] = array(
-        '#type' => 'checkbox',
-        '#title' => t('Enable card issue number text field on checkout form.'),
-        '#default_value' => variable_get('uc_credit_issue_enabled', FALSE),
-      );
-      $form['cc_fields']['uc_credit_bank_enabled'] = array(
-        '#type' => 'checkbox',
-        '#title' => t('Enable issuing bank text field on checkout form.'),
-        '#default_value' => variable_get('uc_credit_bank_enabled', FALSE),
-      );
-      $form['cc_fields']['uc_credit_type_enabled'] = array(
-        '#type' => 'checkbox',
-        '#title' => t('Enable card type selection on checkout form.'),
-        '#description' => t('If enabled, specify in the textarea below which card options to populate the select box with.'),
-        '#default_value' => variable_get('uc_credit_type_enabled', FALSE),
-      );
-      $form['cc_fields']['uc_credit_accepted_types'] = array(
-        '#type' => 'textarea',
-        '#title' => t('Card type select box options'),
-        '#description' => t('Enter one card type per line. These fields will populate the card type select box if it is enabled.'),
-        '#default_value' => variable_get('uc_credit_accepted_types', implode("\r\n", array(t('Visa'), t('Mastercard'), t('Discover'), t('American Express')))),
-      );
-
-      // From elements that deal with card types accepted.
-      $form['cc_types'] = array(
-        '#type' => 'fieldset',
-        '#title' => t('Accepted card types (for validation)'),
-        '#description' => t('Use the checkboxes to specify which card types you accept for payment. Selected card types will show their icons in the payment method selection list and be used for card number validation.'),
-      );
-      $form['cc_types']['uc_credit_visa'] = array(
-        '#type' => 'checkbox',
-        '#title' => t('Visa'),
-        '#default_value' => variable_get('uc_credit_visa', TRUE),
-      );
-      $form['cc_types']['uc_credit_mastercard'] = array(
-        '#type' => 'checkbox',
-        '#title' => t('Mastercard'),
-        '#default_value' => variable_get('uc_credit_mastercard', TRUE),
-      );
-      $form['cc_types']['uc_credit_discover'] = array(
-        '#type' => 'checkbox',
-        '#title' => t('Discover'),
-        '#default_value' => variable_get('uc_credit_discover', TRUE),
-      );
-      $form['cc_types']['uc_credit_amex'] = array(
-        '#type' => 'checkbox',
-        '#title' => t('American Express'),
-        '#default_value' => variable_get('uc_credit_amex', TRUE),
-      );
-
-      // Form elements that deal with credit card messages to customers.
-      $form['cc_messages'] = array(
-        '#type' => 'fieldset',
-        '#title' => t('Customer messages'),
-        '#description' => t('Here you can alter messages displayed to customers using credit cards.'),
-        '#collapsible' => FALSE,
-      );
-      $form['cc_messages']['uc_credit_policy'] = array(
-        '#type' => 'textarea',
-        '#title' => t('Credit card payment policy'),
-        '#description' => t('Instructions for customers on the checkout page above the credit card fields.'),
-        '#default_value' => variable_get('uc_credit_policy', t('Your billing information must match the billing address for the credit card entered below or we will be unable to process your payment.')),
-        '#rows' => 3,
-      );
-      $form['cc_messages']['uc_credit_fail_message'] = array(
-        '#type' => 'textarea',
-        '#title' => t('Card processing failure message'),
-        '#description' => t('Error message displayed to customers when an attempted payment fails at checkout.'),
-        '#default_value' => variable_get('uc_credit_fail_message', t('We were unable to process your credit card payment. Please verify your details and try again.  If the problem persists, contact us to complete your order.')),
-      );
-
-      return $form;
-  }
-}
-
-/**
- * Makes sure the encryption key directory in the credit card settings is valid.
- */
-function uc_credit_settings_form_validate($form, &$form_state) {
-  $dir = variable_get('uc_credit_encryption_path', t('Not configured, see below.'));
-  $filename = rtrim($dir, '/\\') . '/uc_credit.key';
-
-  if ($form_state['values']['uc_credit_encryption_path'] !== variable_get('uc_credit_encryption_path', t('Not configured, see below.'))) {
-    $dir = rtrim($form_state['values']['uc_credit_encryption_path'], '/\\');
-
-    $_SESSION['update_cc_encrypt_dir'] = TRUE;
-    if (!empty($dir) && $dir !== t('Not configured, see below.')) {
-      if (!is_dir($dir)) {
-        form_set_error('uc_credit_encryption_path', t('You have specified a non-existent directory.'));
-        unset($_SESSION['update_cc_encrypt_dir']);
-      }
-      else {
-        $file = @fopen($dir . '/encrypt.test', 'w');
-        if ($file === FALSE) {
-          form_set_error('uc_credit_encryption_path', t('Cannot write to directory, please verify the directory permissions.'));
-          unset($_SESSION['update_cc_encrypt_dir']);
-        }
-        else {
-          if (@fwrite($file, '0123456789') === FALSE) {
-            form_set_error('uc_credit_encryption_path', t('Cannot write to directory, please verify the directory permissions.'));
-            unset($_SESSION['update_cc_encrypt_dir']);
-            fclose($file);
-          }
-          else {
-            fclose($file);
-            $file = @fopen($dir . '/encrypt.test', 'r');
-            if ($file === FALSE) {
-              form_set_error('uc_credit_encryption_path', t('Cannot read from directory, please verify the directory permissions.'));
-              unset($_SESSION['update_cc_encrypt_dir']);
-            }
-            fclose($file);
-          }
-          unlink($dir . '/encrypt.test');
-        }
-      }
-    }
-  }
-}
-
-/**
- * Creates the encryption key file if it doesn't already exist.
- */
-function uc_credit_settings_form_submit($form, &$form_state) {
-  if ($_SESSION['update_cc_encrypt_dir'] === TRUE) {
-    $dir = rtrim($form_state['values']['uc_credit_encryption_path'], '/\\');
-
-    if (!empty($dir) && $dir !== t('Not configured, see below.')) {
-      if (!file_exists($dir . '/uc_credit.key')) {
-        if (!$file = fopen($dir . '/uc_credit.key', 'wb')) {
-          drupal_set_message(t('Credit card encryption key file creation failed. Check your filepath settings and directory permissions.'), 'error');
-          watchdog('uc_credit', 'Credit card encryption key file creation failed. Check your filepath settings and directory permissions.', array(), WATCHDOG_ERROR);
-        }
-        else {
-          // Replacement key generation suggested by Barry Jaspan for increased security.
-          fwrite($file, md5(drupal_get_token(serialize($_REQUEST) . serialize($_SERVER) . REQUEST_TIME)));
-          fclose($file);
-
-          drupal_set_message(t('Credit card encryption key file generated. Card data will now be encrypted.'));
-          watchdog('uc_credit', 'Credit card encryption key file generated. Card data will now be encrypted.');
-        }
-      }
-    }
-  }
-
-  if (!$form_state['values']['uc_credit_checkout_process'] && !$form_state['values']['uc_credit_debug']) {
-    drupal_set_message(t('You have chosen to not process credit card payments during checkout, but customer credit card data is not being stored once checkout is completed. This configuration is not recommended for a live site, as you will not be able to collect payment for your orders.'), 'error');
+      form_load_include($form_state, 'inc', 'uc_credit', 'uc_credit.admin');
+      return uc_credit_settings_form($form, $form_state);
   }
 }
 
@@ -966,7 +603,9 @@ function uc_payment_method_credit_form($form, &$form_state, $order) {
     $order->payment_details = array();
   }
 
-  $form['cc_policy'] = array('#markup' => variable_get('uc_credit_policy', t('Your billing information must match the billing address for the credit card entered below or we will be unable to process your payment.')));
+  $form['cc_policy'] = array(
+    '#markup' => '<p>' . variable_get('uc_credit_policy', t('Your billing information must match the billing address for the credit card entered below or we will be unable to process your payment.')) . '</p>'
+  );
 
   $types = variable_get('uc_credit_accepted_types', implode("\r\n", array(t('Visa'), t('Mastercard'), t('Discover'), t('American Express'))));
   if (variable_get('uc_credit_type_enabled', FALSE) && $types) {
@@ -1018,14 +657,15 @@ function uc_payment_method_credit_form($form, &$form_state, $order) {
   if (variable_get('uc_credit_start_enabled', FALSE)) {
     $month = isset($order->payment_details['cc_start_month']) ? $order->payment_details['cc_start_month'] : NULL;
     $year = isset($order->payment_details['cc_start_year']) ? $order->payment_details['cc_start_year'] : NULL;
-    $form['cc_start_month'] = uc_select_month(t('Start Month'), $month, TRUE);
-    $form['cc_start_year'] = uc_select_year(t('Start Year'), $year, date('Y') - 10, date('Y'), TRUE);
+    $form['cc_start_month'] = uc_select_month(t('Start date'), $month, TRUE);
+    $form['cc_start_year'] = uc_select_year(t('Start year'), $year, date('Y') - 10, date('Y'), TRUE);
+    $form['cc_start_year']['#field_suffix'] = t('(if present)');
   }
 
   $month = isset($order->payment_details['cc_exp_month']) ? $order->payment_details['cc_exp_month'] : 1;
   $year = isset($order->payment_details['cc_exp_year']) ? $order->payment_details['cc_exp_year'] : date('Y');
-  $form['cc_exp_month'] = uc_select_month(t('Expiration Month'), $month);
-  $form['cc_exp_year'] = uc_select_year(t('Expiration Year'), $year);
+  $form['cc_exp_month'] = uc_select_month(t('Expiration date'), $month);
+  $form['cc_exp_year'] = uc_select_year(t('Expiration year'), $year);
 
   if (variable_get('uc_credit_issue_enabled', FALSE)) {
     // Set up the default Issue Number on the credit card form.
@@ -1047,11 +687,12 @@ function uc_payment_method_credit_form($form, &$form_state, $order) {
 
     $form['cc_issue'] = array(
       '#type' => 'textfield',
-      '#title' => t('Issue Number'),
+      '#title' => t('Issue number'),
       '#default_value' => $default_card_issue,
       '#attributes' => array('autocomplete' => 'off'),
       '#size' => 2,
       '#maxlength' => 2,
+      '#field_suffix' => t('(if present)'),
     );
   }
 
@@ -1080,6 +721,7 @@ function uc_payment_method_credit_form($form, &$form_state, $order) {
       '#attributes' => array('autocomplete' => 'off'),
       '#size' => variable_get('uc_credit_amex', TRUE) ? 4 : 3,
       '#maxlength' => variable_get('uc_credit_amex', TRUE) ? 4 : 3,
+      '#field_suffix' => theme('uc_credit_cvv_help'),
     );
   }
 
@@ -1094,109 +736,21 @@ function uc_payment_method_credit_form($form, &$form_state, $order) {
     );
   }
 
-  $form['#theme'] = 'uc_payment_method_credit_form';
-
   unset($_SESSION['clear_cc']);
 
   return $form;
 }
 
 /**
- * Themes the credit form to be in a compact table.
+ * Themes the credit card CVV help link.
  */
-function theme_uc_payment_method_credit_form($variables) {
-  $form = $variables['form'];
-
-  // Comment out this function to just straight display the form.
-  $form['cc_number']['#title'] = '';
-  $form['cc_start_month']['#title'] = '';
-  $form['cc_start_year']['#title'] = '';
-  $form['cc_exp_month']['#title'] = '';
-  $form['cc_exp_year']['#title'] = '';
-  $form['cc_issue']['#title'] = '';
-
-  if (arg(1) == 'checkout') {
-    $path = base_path() . drupal_get_path('module', 'uc_credit');
-    $output = '<table class="inline-pane-table" cellpadding="2">';
-    if (strlen($form['cc_policy']['#markup']) > 0) {
-      $output .= '<tr><td colspan="2" class="description">' . $form['cc_policy']['#markup']
-                . '</td></tr>';
-    }
-    if (variable_get('uc_credit_type_enabled', FALSE)) {
-      $form['cc_type']['#title'] = '';
-      $output .= '<tr><td class="field-label">' . t('Card Type:') . '</td><td>'
-               . drupal_render($form['cc_type']) . '</td></tr>';
-    }
-    if (variable_get('uc_credit_owner_enabled', FALSE)) {
-      $form['cc_owner']['#title'] = '';
-      $output .= '<tr><td class="field-label">' . t('Card Owner:') . '</td><td>'
-               . drupal_render($form['cc_owner']) . '</td></tr>';
-    }
-    $output .= '<tr><td class="field-label">' . t('Card Number:') . '</td><td>'
-             . drupal_render($form['cc_number']) . '</td></tr>';
-    if (variable_get('uc_credit_start_enabled', FALSE)) {
-      $output .= '<tr><td class="field-label">' . t('Start Date:') . '</td><td>'
-               . drupal_render($form['cc_start_month']) . ' ' . drupal_render($form['cc_start_year'])
-                . ' ' . t('(if present)') . '</td></tr>';
-    }
-    $output .= '<tr><td class="field-label">' . t('Expiration Date:') . '</td><td>'
-             . drupal_render($form['cc_exp_month']) . ' '
-             . drupal_render($form['cc_exp_year']) . '</td></tr>';
-    if (variable_get('uc_credit_issue_enabled', FALSE)) {
-      $output .= '<tr><td class="field-label">' . t('Issue Number:') . '</td><td>'
-               . drupal_render($form['cc_issue']) . ' ' . t('(if present)') . '</td></tr>';
-    }
-    if (variable_get('uc_credit_cvv_enabled', TRUE)) {
-      $form['cc_cvv']['#title'] = '';
-      $output .= '<tr><td class="field-label">' . t('CVV:') . '</td><td>' . drupal_render($form['cc_cvv'])
-                . ' <img src="' . $path . '/images/info.png" onclick="cvv_info_popup();" style="cursor: pointer; position: relative; top: 3px;" /> <a style="cursor: pointer; font-weight: normal;" onclick="cvv_info_popup();">'
-                . t("What's the CVV?") . '</a></td></tr>';
-    }
-    if (variable_get('uc_credit_bank_enabled', FALSE)) {
-      $form['cc_bank']['#title'] = '';
-      $output .= '<tr><td class="field-label">' . t('Issuing Bank:') . '</td><td>'
-               . drupal_render($form['cc_bank']) . '</td></tr>';
-    }
-    $output .= '</table>';
-  }
-  else {
-    $output = '<table class="order-edit-table"><tbody style="border-top: 0px;">';
-    if (variable_get('uc_credit_type_enabled', FALSE)) {
-      $form['cc_type']['#title'] = '';
-      $output .= '<tr><td class="oet-label">' . t('Card Type:') . '</td><td>'
-               . drupal_render($form['cc_type']) . '</td></tr>';
-    }
-    if (variable_get('uc_credit_owner_enabled', FALSE)) {
-      $form['cc_owner']['#title'] = '';
-      $output .= '<tr><td class="oet-label">' . t('Card Owner:') . '</td><td>'
-               . drupal_render($form['cc_owner']) . '</td></tr>';
-    }
-    $output .= '<tr><td class="oet-label">' . t('Card Number:') . '</td><td>'
-             . drupal_render($form['cc_number']) . '</td></tr>';
-    if (variable_get('uc_credit_start_enabled', FALSE)) {
-      $output .= '<tr><td class="oet-label">' . t('Start Date:') . '</td><td>'
-               . drupal_render($form['cc_start_month']) . ' ' . drupal_render($form['cc_start_year'])
-                . ' ' . t('(if present)') . '</td></tr>';
-    }
-    $output .= '<tr><td class="oet-label">' . t('Expiration Date:') . '</td><td>'
-             . drupal_render($form['cc_exp_month']) . ' '
-             . drupal_render($form['cc_exp_year']) . '</td></tr>';
-    if (variable_get('uc_credit_issue_enabled', FALSE)) {
-      $output .= '<tr><td class="oet-label">' . t('Issue Number:') . '</td><td>'
-               . drupal_render($form['cc_issue']) . ' ' . t('(if present)') . '</td></tr>';
-    }
-    if (variable_get('uc_credit_cvv_enabled', TRUE)) {
-      $form['cc_cvv']['#title'] = '';
-      $output .= '<tr><td class="oet-label">' . t('CVV:') . '</td><td>'
-               . drupal_render($form['cc_cvv']) . '</td></tr>';
-    }
-    if (variable_get('uc_credit_bank_enabled', FALSE)) {
-      $form['cc_bank']['#title'] = '';
-      $output .= '<tr><td class="oet-label">' . t('Issuing Bank:') . '</td><td>'
-               . drupal_render($form['cc_bank']) . '</td></tr>';
-    }
-    $output .= '</td></tr></tbody></table>';
-  }
+function theme_uc_credit_cvv_help($variables) {
+  $output = '<div class="uc-credit-cvv-help">';
+  $output .= theme('image', array('path' => drupal_get_path('module', 'uc_credit') . '/images/info.png'));
+  $output .= ' ' . l(t("What's the CVV?"), 'cart/checkout/credit/cvv_info', array('attributes' => array(
+    'onclick' => "window.open(this.href, 'CVV_Info', 'toolbar=0,scrollbars=1,location=0,statusbar=0,menubar=0,resizable=1,width=480,height=460'); return false;",
+  )));
+  $output .= '</div>';
 
   return $output;
 }
@@ -1270,7 +824,14 @@ function uc_credit_cache($op, $data = NULL, $encrypted = TRUE) {
       $crypt = new uc_encryption_class;
 
       // Save the unencrypted CC details for the duration of this request.
-      $cc_cache = unserialize($crypt->decrypt($key, $data));
+      // In recent versions, we base64_encode() the payment details before
+      // encrypting. We can detect encoded data by the lack of colons,
+      // due to base64's limited character set.
+      $data = $crypt->decrypt($key, $data);
+      if (strpos($data, ':') === FALSE) {
+        $data = base64_decode($data);
+      }
+      $cc_cache = unserialize($data);
     }
     else {
       $cc_cache = $data;
@@ -1307,7 +868,7 @@ function uc_credit_cart_review_pre_form_submit($form, &$form_state) {
  * Clears the temporary CC data if the review order form submits.
  */
 function uc_credit_cart_review_post_form_submit($form, &$form_state) {
-  if ($_SESSION['do_complete']) {
+  if (isset($_SESSION['do_complete'])) {
     // Otherwise stuff it back in the session for the next pageload.
     unset($_SESSION['sescrd']);
   }
@@ -1483,7 +1044,7 @@ function _uc_credit_save_cc_data_to_order($cc_data, $order_id) {
   $data = unserialize($data);
 
   // Stuff the serialized and encrypted CC details into the array.
-  $data['cc_data'] = $crypt->encrypt(uc_credit_encryption_key(), serialize($cc_data));
+  $data['cc_data'] = $crypt->encrypt(uc_credit_encryption_key(), base64_encode(serialize($cc_data)));
   uc_store_encryption_errors($crypt, 'uc_credit');
 
   // Save it again.
@@ -1524,44 +1085,12 @@ function uc_credit_default_gateway() {
     return FALSE;
   }
 
-  // If we only found one gateway for this payment method...
-  if (count($gateways) == 1) {
-    // Get the payment gateway array and store its ID.
-    $gateway = array_shift($gateways);
-    $gateway_id = $gateway['id'];
+  // Find the default gateway, or otherwise choose the first available.
+  $default = variable_get('uc_payment_credit_gateway', 'none');
+  $gateway = isset($gateways[$default]) ? $gateways[$default] : reset($gateways);
 
-    // Store the callback for this gateway.
-    $callback = $gateway['credit'];
-  }
-  else {
-    // Otherwise attempt to find the appropriate gateway function in the array.
-    $callback = FALSE;
-
-    // Loop through each gateway.
-    foreach ($gateways as $gateway) {
-      // Store the callback if this is the specified default.
-      if ($gateway['id'] == variable_get('uc_payment_credit_gateway', '')) {
-        $callback = $gateway['credit'];
-        $gateway_id = $gateway['id'];
-      }
-    }
-
-    // If we didn't find a default callback...
-    if ($callback === FALSE) {
-      // Get the key for the first payment gateway in the array.
-      $gateway_id = array_shift(array_keys($gateways));
-
-      // Store the callback for this gateway.
-      $callback = $gateways[$gateway_id]['credit'];
-    }
-  }
-
-  // Return FALSE if the specified callback does not exist.
-  if (!function_exists($callback)) {
-    return FALSE;
-  }
-
-  return $gateway_id;
+  // Return FALSE if the credit callback does not exist.
+  return function_exists($gateway['credit']) ? $gateway['id'] : FALSE;
 }
 
 /**
@@ -1687,3 +1216,11 @@ function uc_credit_gateway_txn_types($gateway) {
 
   return $types;
 }
+
+/**
+ * Title callback for admin/store/orders/%uc_order/credit.
+ */
+function uc_credit_terminal_title($order) {
+  return t('Credit card terminal: Order @order_id', array('@order_id' => $order->order_id));
+}
+

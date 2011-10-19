@@ -11,14 +11,14 @@
 function uc_google_checkout_requirements($phase) {
   $t = get_t();
 
-  $has_simplexml = class_exists('SimpleXMLElement');
+  $has_simplexml = extension_loaded('SimpleXML');
   $requirements['uc_gc_simplexml'] = array(
     'title' => $t('SimpleXML'),
     'value' => $has_simplexml ? $t('Enabled') : $t('Not found'),
   );
   if (!$has_simplexml) {
     $requirements['uc_gc_simplexml']['severity'] = REQUIREMENT_ERROR;
-    $requirements['uc_gc_simplexml']['description'] = $t('Google Checkout requires the PHP <a href="!simplexml_url">SimpleXML</a> library.', array('!simplexml_url' => 'http://php.net/manual/en/simplexml.setup.php'));
+    $requirements['uc_gc_simplexml']['description'] = $t('Google Checkout requires the PHP <a href="!simplexml_url">SimpleXML</a> library.', array('!simplexml_url' => 'http://www.php.net/simplexml'));
   }
 
   return $requirements;
@@ -148,20 +148,30 @@ function uc_google_checkout_schema() {
 function uc_google_checkout_install() {
   $t = get_t();
 
-  db_insert('uc_order_statuses')
-    ->fields(array('order_status_id', 'title', 'state', 'weight', 'locked'))
-    ->values(array(
-      'order_status_id' => 'in_google_checkout',
+  db_merge('uc_order_statuses')
+    ->key(array('order_status_id' => 'in_google_checkout'))
+    ->insertFields(array(
       'title' => $t('In Google Checkout'),
       'state' => 'in_checkout',
       'weight' => -7,
       'locked' => 1,
     ))
-    ->values(array(
-      'order_status_id' => 'chargeable',
+    ->updateFields(array(
+      'state' => 'in_checkout',
+      'locked' => 1,
+    ))
+    ->execute();
+
+  db_merge('uc_order_statuses')
+    ->key(array('order_status_id' => 'chargeable'))
+    ->insertFields(array(
       'title' => $t('Chargeable'),
       'state' => 'post_checkout',
       'weight' => 2,
+      'locked' => 1,
+    ))
+    ->updateFields(array(
+      'state' => 'post_checkout',
       'locked' => 1,
     ))
     ->execute();

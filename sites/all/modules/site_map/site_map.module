@@ -1,5 +1,4 @@
 <?php
-// $Id: site_map.module,v 1.44.2.2 2011/01/05 18:44:35 frjo Exp $
 
 /**
  * @file
@@ -41,7 +40,7 @@ function site_map_theme() {
       'file' => 'site_map.theme.inc',
     ),
     'site_map_box' => array(
-      'variables' => array('title' => NULL, 'content' => NULL, 'class' => NULL),
+      'variables' => array('title' => NULL, 'content' => NULL, 'attributes' => array()),
       'file' => 'site_map.theme.inc',
     ),
     'site_map_feed_icon' => array(
@@ -74,7 +73,6 @@ function site_map_menu() {
     'page arguments' => array('site_map_admin_settings_form'),
     'access arguments' => array('administer site configuration'),
     'file' => 'site_map.admin.inc',
-    'type' => MENU_NORMAL_ITEM,
   );
   $items['sitemap'] = array(
     'title' => 'Site map',
@@ -88,14 +86,40 @@ function site_map_menu() {
 }
 
 /**
- * Implements hook_block().
+ * Implements hook_variable_info().
+ */
+function site_map_variable_info($options) {
+  $variable['site_map_page_title'] = array(
+    'type' => 'string',
+    'title' => t('Site map title', array(), $options),
+    'description' => t('Page title that will be used on the <a href="@link">site map page</a>.', array('@link' => url('sitemap'))),
+    'default' => 'Site map',
+  );
+
+  $variable['site_map_rss_front'] = array(
+    'type' => 'string',
+    'title' => t('RSS feed for front page', array(), $options),
+    'description' => t('The RSS feed for the front page, default is rss.xml.'),
+    'default' => 'rss.xml',
+  );
+
+  return $variable;
+}
+
+/**
+ * Implements hook_block_info().
  */
 function site_map_block_info() {
   $block['syndicate']['info'] = t('Syndicate (site map)');
+  // Do no caching because $feedurl is different for blogs.
+  $blocks['syndicate']['cache'] = DRUPAL_NO_CACHE;
 
   return $block;
 }
 
+/**
+ * Implements hook_block_view().
+ */
 function site_map_block_view($delta = '') {
   if (user_access('access content')) {
     switch ($delta) {
@@ -108,8 +132,14 @@ function site_map_block_view($delta = '') {
         else {
           $feedurl = variable_get('site_map_rss_front', 'rss.xml');
         }
-        $block['content'] = theme('feed_icon', array('url' => url($feedurl), 'title' => t('Syndicate')));
-        $block['content'] .= '<div class="more-link">' . l(t('more'), 'sitemap', array('title' => t('View the site map to see more RSS feeds.'))) . "</div>\n";
+        $block['content'] = theme('feed_icon', array(
+          'url' => $feedurl,
+          'title' => t('Syndicate'),
+        ));
+        $block['content'] .= theme('more_link', array(
+          'url' => 'sitemap',
+          'title' => t('View the site map to see more RSS feeds.'),
+        ));
         break;
     }
 
@@ -124,7 +154,7 @@ function site_map_page() {
   drupal_set_title(variable_get('site_map_page_title', t('Site map')));
 
   if (variable_get('site_map_css', 0) != 1) {
-    drupal_add_css(drupal_get_path('module', 'site_map') . '/site_map.css');
+    drupal_add_css(drupal_get_path('module', 'site_map') . '/site_map.theme.css');
   }
 
   return theme('site_map');
@@ -132,7 +162,7 @@ function site_map_page() {
 
 function _site_map_front_page() {
   $output = '';
-  $class = '';
+  $class = array();
   $title = t('Front page');
   $output = l(t('Front page of %sn', array('%sn' => variable_get('site_name', 'Drupal'))), '<front>', array('html' => TRUE));
 
@@ -145,12 +175,15 @@ function _site_map_front_page() {
       $output .= ' ' . $rss_link;
     }
     else {
-      $class = ' site-map-rss-left';
+      $class[] = 'site-map-rss-left';
       $output = $rss_link . ' ' . $output;
     }
   }
 
-  return theme('site_map_box', array('title' => $title, 'content' => $output, 'class' => 'site-map-front-box' . $class));
+  $class[] = 'site-map-box-front';
+  $attributes = array('class' => $class);
+
+  return theme('site_map_box', array('title' => $title, 'content' => $output, 'attributes' => $attributes));
 }
 
 /**
@@ -158,7 +191,7 @@ function _site_map_front_page() {
  */
 function _site_map_blogs() {
   $output = '';
-  $class = '';
+  $class = array();
   if (module_exists('blog')) {
     $title = t('Blogs');
     $output = '<div class="description">' . t('Community blog and recent blog authors at %sn.', array('%sn' => variable_get('site_name', 'Drupal'))) . '</div>';
@@ -170,7 +203,7 @@ function _site_map_blogs() {
         $blog_link .= ' ' . $rss_link;
       }
       else {
-        $class = ' site-map-rss-left';
+        $class[] = 'site-map-rss-left';
         $blog_link = $rss_link . ' ' . $blog_link;
       }
     }
@@ -197,8 +230,12 @@ function _site_map_blogs() {
       }
       $blogs[] = $blog_item;
     }
+
+    $class[] = 'site-map-box-blog';
+    $attributes = array('class' => $class);
+
     $output .= theme('item_list', array('items' => $blogs));
-    $output = theme('site_map_box', array('title' => $title, 'content' => $output, 'class' => 'site-map-blog-box' . $class));
+    $output = theme('site_map_box', array('title' => $title, 'content' => $output, 'attributes' => $attributes));
   }
 
   return $output;
@@ -206,7 +243,7 @@ function _site_map_blogs() {
 
 function _site_map_audio() {
   $output = '';
-  $class = '';
+  $class = array();
   if (module_exists('audio')) {
     $title = t('Audio');
     $output = l(t('Audio content'), 'audio');
@@ -216,11 +253,15 @@ function _site_map_audio() {
         $output .= ' ' . $rss_link;
       }
       else {
-        $class = ' site-map-rss-left';
+        $class[] = 'site-map-rss-left';
         $output = $rss_link . ' ' . $output;
       }
     }
-    $output = theme('site_map_box', array('title' => $title, 'content' => $output, 'class' => 'site-map-audio-box' . $class));
+
+    $class[] = 'site-map-box-audio';
+    $attributes = array('class' => $class);
+
+    $output = theme('site_map_box', array('title' => $title, 'content' => $output, 'attributes' => $attributes));
   }
 
   return $output;
@@ -228,7 +269,7 @@ function _site_map_audio() {
 
 function _site_map_video() {
   $output = '';
-  $class = '';
+  $class = array();
   if (module_exists('video')) {
     $title = t('Video');
     $output = l(t('Video content'), 'video');
@@ -238,11 +279,15 @@ function _site_map_video() {
         $output .= ' ' . $rss_link;
       }
       else {
-        $class = ' site-map-rss-left';
+        $class[] = 'site-map-rss-left';
         $output = $rss_link . '  ' . $output;
       }
     }
-    $output = theme('site_map_box', array('title' => $title, 'content' => $output, 'class' => 'site-map-video-box' . $class));
+
+    $class[] = 'site-map-box-video';
+    $attributes = array('class' => $class);
+
+    $output = theme('site_map_box', array('title' => $title, 'content' => $output, 'attributes' => $attributes));
   }
 
   return $output;
@@ -253,23 +298,40 @@ function _site_map_video() {
  */
 function _site_map_books() {
   $output = '';
-  $nids = array_filter(variable_get('site_map_show_books', array()));
+  $book_titles = array();
+  $mlid = array_filter(variable_get('site_map_show_books', array()));
 
-  if (module_exists('book') && !empty($nids)) {
+  if (module_exists('book') && !empty($mlid)) {
+    $books_expanded = variable_get('site_map_books_expanded', 1);
     $title = t('Books');
     $description = '<div class="description">' . t('Books at %sn.', array('%sn' => variable_get('site_name', 'Drupal'))) . '</div>';
 
-    $book_menus = array();
-    foreach ($nids as $nid) {
-      $node = node_load($nid);
-      $tree = menu_tree_all_data($node->book['menu_name']);
-      $data = array_shift($tree);
-      $output .= theme('book_title_link', array('link' => $data['link']));
-      $output .= ($data['below']) ? _site_map_menu_tree_output($data['below']) : '';
+    foreach (book_get_books() as $book_id => $book) {
+      if (in_array($book['mlid'], $mlid)) {
+        // Use menu_tree_all_data to retrieve the expanded tree.
+        $tree = menu_tree_all_data($book['menu_name']);
+        if (module_exists('i18n_menu')) {
+          $tree = i18n_menu_localize_tree($tree, $GLOBALS['language']->language);
+        }
+        if ($books_expanded) {
+          $tree_output = _site_map_menu_tree_output($tree);
+          $output .= drupal_render($tree_output);
+        }
+        else {
+          $data = array_shift($tree);
+          $book_titles[] = theme('book_title_link', array('link' => $data['link']));
+        }
+      }
+    }
+
+    if (!$books_expanded && !empty($book_titles)) {
+      $output .= theme('item_list', array('items' => $book_titles));
     }
 
     if (!empty($output)) {
-      $output = theme('site_map_box', array('title' => $title, 'content' => $description . $output, 'class' => 'site-map-book-box'));
+      $attributes = array('class' => array('site-map-box-book'));
+
+      $output = theme('site_map_box', array('title' => $title, 'content' => $description . $output, 'attributes' => $attributes));
     }
   }
 
@@ -281,6 +343,7 @@ function _site_map_books() {
  */
 function _site_map_menus() {
   $output = '';
+  $class = array();
   $mids = array_filter(variable_get('site_map_show_menus', array()));
 
   if (!empty($mids)) {
@@ -288,14 +351,17 @@ function _site_map_menus() {
       $menu = menu_load($mid);
       // Use menu_tree_all_data to retrieve the expanded tree.
       $tree = menu_tree_all_data($mid);
-      if (module_exists('i18nmenu')) {
-        i18nmenu_localize_tree($tree);
+      if (module_exists('i18n_menu')) {
+        $tree = i18n_menu_localize_tree($tree, $GLOBALS['language']->language);
       }
       $menu_display = _site_map_menu_tree_output($tree);
       $menu_html = drupal_render($menu_display);
       if (!empty($menu_html)) {
         $title = $menu['title'];
-        $output .= theme('site_map_box', array('title' => $title, 'content' => $menu_html, 'class' => 'site-map-menu-box'));
+        $class[] = 'site-map-box-menu';
+        $class[] = 'site-map-box-menu-' . $mid;
+        $attributes = array('class' => $class);
+        $output .= theme('site_map_box', array('title' => $title, 'content' => $menu_html, 'attributes' => $attributes));
       }
     }
   }
@@ -307,8 +373,9 @@ function _site_map_faq() {
   $output = '';
   if (module_exists('faq')) {
     $title = variable_get('faq_title', t('Frequently Asked Questions'));
+    $attributes = array('class' => array('site-map-box-faq'));
     $output = faq_get_faq_list();
-    $output = theme('site_map_box', array('title' => $title, 'content' => $output, 'class' => 'site-map-faq-box'));
+    $output = theme('site_map_box', array('title' => $title, 'content' => $output, 'attributes' => $attributes));
   }
 
   return $output;
@@ -323,11 +390,11 @@ function _site_map_taxonomys() {
 
   if (module_exists('taxonomy') && !empty($vids)) {
     $result = db_query('SELECT vid, name, description FROM {taxonomy_vocabulary} WHERE vid IN (:vids) ORDER BY weight ASC, name', array(':vids' => $vids));
-    foreach ($result as $t) {
-      if (module_exists('i18ntaxonomy')) {
-        $t->name = tt("taxonomy:vocabulary:$t->vid:name", $t->name);
+    foreach ($result as $voc) {
+      if (module_exists('i18n_taxonomy')) {
+        $voc->name = i18n_taxonomy_vocabulary_name($voc, $GLOBALS['language']->language);
       }
-      $output .= _site_map_taxonomy_tree($t->vid, $t->name, $t->description);
+      $output .= _site_map_taxonomy_tree($voc->vid, $voc->name, $voc->description);
     }
   }
 
@@ -348,7 +415,7 @@ function _site_map_taxonomys() {
  */
 function _site_map_taxonomy_tree($vid, $name = NULL, $description = NULL) {
   $output = '';
-  $class = '';
+  $class = array();
   if ($vid == variable_get('forum_nav_vocabulary', '')) {
     $title = l($name, 'forum');
     $threshold = variable_get('site_map_forum_threshold', -1);
@@ -373,8 +440,8 @@ function _site_map_taxonomy_tree($vid, $name = NULL, $description = NULL) {
       continue;
     }
 
-    if (module_exists('i18ntaxonomy')) {
-      $term->name = tt("taxonomy:term:$term->tid:name", $term->name);
+    if (module_exists('i18n_taxonomy')) {
+      $term->name = i18n_taxonomy_term_name($term, $GLOBALS['language']->language);
     }
 
     // Adjust the depth of the <ul> based on the change
@@ -417,7 +484,7 @@ function _site_map_taxonomy_tree($vid, $name = NULL, $description = NULL) {
         $term_item .= ' ' . $rss_link;
       }
       else {
-        $class = ' site-map-rss-left';
+        $class[] = 'site-map-rss-left';
         $term_item = $rss_link . ' ' . $term_item;
       }
     }
@@ -434,7 +501,12 @@ function _site_map_taxonomy_tree($vid, $name = NULL, $description = NULL) {
       $output .= "</li>\n</ul>\n";
     }
   }
-  $output = theme('site_map_box', array('title' => $title, 'content' => $output, 'class' => 'site-map-terms-box site-map-terms-box-' . $vid . $class));
+
+  $class[] = 'site-map-box-terms';
+  $class[] = 'site-map-box-terms-' . $vid;
+  $attributes = array('class' => $class);
+
+  $output = theme('site_map_box', array('title' => $title, 'content' => $output, 'attributes' => $attributes));
 
   return $output;
 }
@@ -470,10 +542,16 @@ function site_map_taxonomy_term_count_nodes($tid) {
  *
  * Returns a rendered menu tree.
  *
+ * The menu item's LI element is given one of the following classes:
+ * - expanded: The menu item is showing its submenu.
+ * - collapsed: The menu item has a submenu which is not shown.
+ * - leaf: The menu item has no submenu.
+ *
  * @param $tree
  *   A data structure representing the tree as returned from menu_tree_data.
+ *
  * @return
- *   The rendered HTML of that data structure.
+ *   A structured array to be rendered by drupal_render().
  */
 function _site_map_menu_tree_output($tree) {
   $build = array();
@@ -482,11 +560,12 @@ function _site_map_menu_tree_output($tree) {
   // Pull out just the menu links we are going to render so that we
   // get an accurate count for the first/last classes.
   foreach ($tree as $data) {
-    if (!$data['link']['hidden']) {
+    if ($data['link']['access'] && !$data['link']['hidden']) {
       $items[] = $data;
     }
   }
 
+  $router_item = menu_get_item();
   $num_items = count($items);
   foreach ($items as $i => $data) {
     $class = array();
@@ -496,8 +575,10 @@ function _site_map_menu_tree_output($tree) {
     if ($i == $num_items - 1) {
       $class[] = 'last';
     }
-    // Set a class if the link has children.
-    if ($data['below']) {
+    // Set a class for the <li>-tag. Since $data['below'] may contain local
+    // tasks, only set 'expanded' class if the link also has children within
+    // the current menu.
+    if ($data['link']['has_children'] && $data['below']) {
       $class[] = 'expanded';
     }
     elseif ($data['link']['has_children']) {
@@ -509,11 +590,18 @@ function _site_map_menu_tree_output($tree) {
     // Set a class if the link is in the active trail.
     if ($data['link']['in_active_trail']) {
       $class[] = 'active-trail';
-      $data['localized_options']['attributes']['class'][] = 'active-trail';
+      $data['link']['localized_options']['attributes']['class'][] = 'active-trail';
+    }
+    // Normally, l() compares the href of every link with $_GET['q'] and sets
+    // the active class accordingly. But local tasks do not appear in menu
+    // trees, so if the current path is a local task, and this link is its
+    // tab root, then we have to set the class manually.
+    if ($data['link']['href'] == $router_item['tab_root_href'] && $data['link']['href'] != $_GET['q']) {
+      $data['link']['localized_options']['attributes']['class'][] = 'active';
     }
 
     // Allow menu-specific theme overrides.
-    $element['#theme'] = 'site_map_menu_link__' . $data['link']['menu_name'];
+    $element['#theme'] = 'site_map_menu_link__' . strtr($data['link']['menu_name'], '-', '_');
     $element['#attributes']['class'] = $class;
     $element['#title'] = $data['link']['title'];
     $element['#href'] = $data['link']['href'];
@@ -528,7 +616,7 @@ function _site_map_menu_tree_output($tree) {
     $build['#sorted'] = TRUE;
     // Add the theme wrapper for outer markup.
     // Allow menu-specific theme overrides.
-    $build['#theme_wrappers'][] = 'site_map_menu_tree__' . $data['link']['menu_name'];
+    $build['#theme_wrappers'][] = 'site_map_menu_tree__' . strtr($data['link']['menu_name'], '-', '_');
   }
 
   return $build;

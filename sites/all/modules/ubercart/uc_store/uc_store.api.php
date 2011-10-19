@@ -38,45 +38,6 @@ function hook_tapir_table_alter(&$table, $table_id) {
 }
 
 /**
- * Allows modules to alter TAPIr table headers.
- *
- * This is most often done when a developer wants to add a sortable field to
- * the table. A sortable field is one where the header can be clicked to sort
- * the table results. This cannot be done using hook_tapir_table_alter() as
- * once that is called the query has already executed.
- *
- * The example below adds a 'designer' column to the catalog product table. The
- * example module would also have added joins to the query using
- * hook_db_rewrite_sql() in order for table 'td2' to be valid. The 'name' field
- * is displayed in the table and the header has the title 'Designer'.
- *
- * Also shown are changes made to the header titles for list_price and
- * price fields.
- *
- * @see hook_db_rewrite_sql()
- *
- * @param $header
- *   Reference to the array header declaration (i.e $table['#header']).
- * @param $table_id
- *   Table ID. Also the function called to build the table declaration.
- */
-function hook_tapir_table_header_alter(&$header, $table_id) {
-  if ($table_id == 'uc_product_table') {
-    $header['designer'] = array(
-      'weight' => 2,
-      'cell' => array(
-        'data' => t('Designer'),
-        'field' => 'td2.name',
-      ),
-    );
-
-    $header['list_price']['cell']['data'] = t('RRP');
-    $header['price']['cell']['data'] = t('Sale');
-    $header['add_to_cart']['cell']['data'] = '';
-  }
-}
-
-/**
  * Allows modules to modify forms before Drupal invokes hook_form_alter().
  *
  * This hook will normally be used by core modules so any form modifications
@@ -85,7 +46,6 @@ function hook_tapir_table_header_alter(&$header, $table_id) {
  * so none of the automatic form data (e.g.: #parameters, #build_id, etc.) has
  * been added yet.
  *
- * For a description of the hook parameters:
  * @see hook_form_alter()
  */
 function hook_uc_form_alter(&$form, &$form_state, $form_id) {
@@ -118,8 +78,8 @@ function hook_uc_form_alter(&$form, &$form_state, $form_id) {
  * orders. Because of the way default values are normally set, you're then stuck
  * having to copy and paste a large chunk of text in at least two different
  * places in the module (when you're wanting to use the variable or to display
- * the settings form with the default value). To cut down code clutter, this hook
- * was introduced. It lets you put your messages in one place and use the
+ * the settings form with the default value). To cut down code clutter, this
+ * hook was introduced. It lets you put your messages in one place and use the
  * function uc_get_message() to retrieve the default value at any time (and from
  * any module).
  *
@@ -129,8 +89,8 @@ function hook_uc_form_alter(&$form, &$form_state, $form_id) {
  * here to refer to the message you want.
  *
  * Note: When using t(), you must not pass it a concatenated string! So our
- * example has no line breaks in the message even though it is much wider than 80
- * characters. Using concatenation breaks translation.
+ * example has no line breaks in the message even though it is much wider than
+ * 80 characters. Using concatenation breaks translation.
  *
  * @return
  *   An array of messages.
@@ -142,25 +102,26 @@ function hook_uc_message() {
 }
 
 /**
- * Add status messages to the "Store administration" page.
+ * Adds status messages to the "Store administration" page.
  *
  * This hook is used to add items to the store status table on the main store
  * administration screen. Each item gets a row in the table that consists of a
  * status icon, title, and description. These items should be used to give
  * special instructions, notifications, or indicators for components of the cart
- * enabled by the modules. At a glance, a store owner should be able to look here
- * and see if a critical component of your module is not functioning properly.
+ * enabled by the modules. At a glance, a store owner should be able to look
+ * here and see if a critical component of your module is not functioning
+ * properly.
  *
- * For example, if the catalog module is installed and it cannot find the catalog
- * taxonomy vocabulary, it will show an error message here to alert the store
- * administrator.
+ * For example, if the catalog module is installed and it cannot find the
+ * catalog taxonomy vocabulary, it will show an error message here to alert the
+ * store administrator.
  *
  * @return
  *   An array of tore status items which are arrays with the following keys:
- *   - "status": "ok", "warning", or "error" depending on the message.
- *   - "title" The title of the status message or module that defines it.
- *   - "desc": The description; can be any message, including links to pages and
- *       forms that deal with the issue being reported.
+ *   - status: "ok", "warning", or "error" depending on the message.
+ *   - title: The title of the status message or module that defines it.
+ *   - desc: The description; can be any message, including links to pages and
+ *     forms that deal with the issue being reported.
  */
 function hook_uc_store_status() {
   if ($key = uc_credit_encryption_key()) {

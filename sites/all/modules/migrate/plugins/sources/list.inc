@@ -36,11 +36,17 @@ abstract class MigrateList {
   /**
    * Implementors are expected to return a count of IDs available to be migrated.
    *
-   * @param boolean $refresh
+   * @API: Commented out so not to break implementations which haven't implemented
+   *  this yet - require it in the next API.
    *
    * @return int
    */
-  abstract public function count($refresh = FALSE);
+  //abstract public function computeCount();
+
+  /**
+   * Deprecated - implement computeCount() instead
+   */
+  //abstract public function count($refresh = TRUE);
 }
 
 /**
@@ -105,8 +111,9 @@ class MigrateSourceList extends MigrateSource {
   /**
    * Simple initialization.
    */
-  public function __construct(MigrateList $list_class, MigrateItem $item_class, $fields = array()) {
-    parent::__construct();
+  public function __construct(MigrateList $list_class, MigrateItem $item_class, $fields = array(),
+      $options = array()) {
+    parent::__construct($options);
     $this->listClass = $list_class;
     $this->itemClass = $item_class;
     $this->fields = $fields;
@@ -137,12 +144,16 @@ class MigrateSourceList extends MigrateSource {
   /**
    * It's the list class that knows how many records are available, so ask it.
    *
-   * @param boolean $refresh
-   *
    * @return int
    */
-  public function count($refresh = FALSE) {
-    return $this->listClass->count($refresh);
+  public function computeCount() {
+    // @API: Support old count method for now.
+    if (method_exists($this->listClass, 'computeCount')) {
+      return $this->listClass->computeCount();
+    }
+    else {
+      return $this->listClass->count();
+    }
   }
 
   /**
@@ -152,6 +163,7 @@ class MigrateSourceList extends MigrateSource {
     $migration = Migration::currentMigration();
     migrate_instrument_start('MigrateSourceList rewind');
     $this->numProcessed = 0;
+    $this->numIgnored = 0;
     $idlist = $migration->getOption('idlist');
     if ($idlist) {
       $this->idList = explode(',', $idlist);
@@ -175,10 +187,14 @@ class MigrateSourceList extends MigrateSource {
     $this->currentKey = NULL;
 
     // Enforce the itemlimit
-    $itemlimit = $migration->getOption('itemlimit');
+    $itemlimit = $migration->getItemLimit();
 
     // Get next item (next ID not already in the map, unless needs_update=1)
     while ($this->id = array_shift($this->idList)) {
+      // Skip empty IDs
+      if (empty($this->id)) {
+        continue;
+      }
       // Enforce the itemlimit
       if ($itemlimit && $this->numProcessed >= $itemlimit) {
         return;
@@ -216,6 +232,9 @@ class MigrateSourceList extends MigrateSource {
           // OK, got a valid one, break out and return
           $this->numProcessed++;
           break;
+        }
+        else {
+          $this->numIgnored++;
         }
       }
       else {

@@ -1,5 +1,4 @@
 <?php
-// $Id: html.tpl.php,v 1.6 2010/11/24 03:30:59 webchick Exp $
 
 /**
  * @file
@@ -51,10 +50,7 @@
   <?php print $styles; ?>
   <?php print $scripts; ?>
 </head>
-<!--[if lt IE 7 ]> <body class="no-js ie6 <?php print $classes; ?>" <?php print $attributes;?>> <![endif]-->
-<!--[if IE 7 ]>    <body class="no-js ie7 <?php print $classes; ?>" <?php print $attributes;?>> <![endif]-->
-<!--[if IE 8 ]>    <body class="no-js ie8 <?php print $classes; ?>" <?php print $attributes;?>> <![endif]-->
-<!--[if (gte IE 9)|!(IE)]><!--> <body class="no-js <?php print $classes; ?>" <?php print $attributes;?>> <!--<![endif]-->
+<body class="<?php print $classes; ?>" <?php print $attributes;?>>
   <div id="skip-link">
     <a href="#main-content" class="element-invisible element-focusable"><?php print t('Skip to main content'); ?></a>
   </div>

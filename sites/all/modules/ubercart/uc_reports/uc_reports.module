@@ -93,24 +93,16 @@ function uc_reports_menu() {
   global $user;
   $items = array();
 
-  $items['admin/store/settings/reports'] = array(
-    'title' => 'Report settings',
-    'description' => 'View the report settings.',
-    'page callback' => 'drupal_get_form',
-    'page arguments' => array('uc_reports_settings_form'),
-    'access arguments' => array('administer store'),
-    'file' => 'uc_reports.admin.inc',
-  );
   $items['admin/store/reports/customers'] = array(
     'title' => 'Customer reports',
-    'description' => 'View reports for store customers',
+    'description' => 'View reports for store customers.',
     'page callback' => 'uc_reports_customers',
     'access arguments' => array('view reports'),
     'file' => 'uc_reports.admin.inc',
   );
   $items['admin/store/reports/products'] = array(
     'title' => 'Product reports',
-    'description' => 'View reports for store products',
+    'description' => 'View reports for store products.',
     'page callback' => 'uc_reports_products',
     'access arguments' => array('view reports'),
     'file' => 'uc_reports.admin.inc',
@@ -133,7 +125,7 @@ function uc_reports_menu() {
   );
   $items['admin/store/reports/sales'] = array(
     'title' => 'Sales reports',
-    'description' => 'View reports for store sales',
+    'description' => 'View reports for store sales.',
     'page callback' => 'uc_reports_sales_summary',
     'access arguments' => array('view reports'),
     'file' => 'uc_reports.admin.inc',
@@ -194,13 +186,34 @@ function uc_reports_init() {
 }
 
 /**
- * Implements hook_permission().
+ * Implements hook_form_FORM_ID_alter() for uc_store_settings_form().
  */
-function uc_reports_permission() {
-  return array(
-    'view reports' => array(
-      'title' => t('View reports'),
-    ),
+function uc_reports_form_uc_store_settings_form_alter(&$form, &$form_state) {
+  $form['reports'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Report settings'),
+    '#group' => 'store',
+  );
+  $form['reports']['uc_reports_table_size'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Number of rows to show in reports'),
+    '#description' => t('The maximum number of rows displayed on one page for a report table.'),
+    '#default_value' => variable_get('uc_reports_table_size', 30),
+    '#size' => 5,
+  );
+
+  $options = array();
+  foreach (uc_order_status_list() as $status) {
+    $options[$status['id']] = $status['title'];
+  }
+
+  $form['reports']['uc_reports_reported_statuses'] = array(
+    '#type' => 'checkboxes',
+    '#title' => t('Reported statuses'),
+    '#description' => t('Only orders with selected statuses will be included in reports.'),
+    '#options' => $options,
+    '#default_value' => variable_get('uc_reports_reported_statuses', array('completed')),
+    '#multiple' => TRUE,
   );
 }
 
@@ -267,7 +280,7 @@ function _uc_reports_get_csv($report_id, $user_id) {
     );
     foreach ($http_headers as $header => $value) {
       $value = preg_replace('/\r?\n(?!\t| )/', '', $value);
-      drupal_set_header($header, $value);
+      drupal_add_http_header($header, $value);
     }
 
     print $csv_data->data;

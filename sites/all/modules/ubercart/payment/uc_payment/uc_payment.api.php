@@ -42,14 +42,11 @@ function hook_uc_payment_entered($order, $method, $amount, $account, $data, $com
 /**
  * Registers payment gateway callbacks.
  *
- * @see @link http://www.ubercart.org/docs/api/hook_payment_gateway @endlink
+ * @see http://www.ubercart.org/docs/api/hook_payment_gateway
  *
  * @return
- *   Returns an array of payment gateways, which are arrays with the following keys:
- *   - "id"
- *     - type: string
- *     - value: The internal ID of the payment gateway, using a-z, 0-9, and - or
- *         _.
+ *   Returns an array of payment gateways, keyed by the gateway ID, and with
+ *   the following members:
  *   - "title"
  *     - type: string
  *     - value: The name of the payment gateway displayed to the user. Use t().
@@ -60,15 +57,27 @@ function hook_uc_payment_entered($order, $method, $amount, $account, $data, $com
  *     - type: string
  *     - value: The name of a function that returns an array of settings form
  *         elements for the gateway.
+ *   - Other keys are payment method IDs, with the value as the name of the
+ *     gateway charge function.
  */
 function hook_uc_payment_gateway() {
-  $gateways[] = array(
-    'id' => 'test_gateway',
+  $gateways['test_gateway'] = array(
     'title' => t('Test Gateway'),
     'description' => t('Process credit card payments through the Test Gateway.'),
     'credit' => 'test_gateway_charge',
   );
   return $gateways;
+}
+
+/**
+ * Alter payment gateways.
+ *
+ * @param $gateways
+ *   Payment gateways passed by reference.
+ */
+function hook_uc_payment_gateway_alter(&$gateways) {
+  // Change the title of the test gateway.
+  $gateways['test_gateway']['title'] = t('Altered test gateway title.');
 }
 
 /**
@@ -84,8 +93,7 @@ function hook_uc_payment_gateway() {
  *   An array of payment methods.
  */
 function hook_uc_payment_method() {
-  $methods[] = array(
-    'id' => 'check',
+  $methods['check'] = array(
     'name' => t('Check'),
     'title' => t('Check or Money Order'),
     'desc' => t('Pay by mailing a check or money order.'),

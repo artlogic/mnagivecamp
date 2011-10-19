@@ -59,10 +59,12 @@ function uc_cybersource_page_alter(&$page) {
 }
 
 /**
- * Implements hook_form_FORM_ID_alter() for uc_payment_gateways_form().
+ * Implements hook_form_FORM_ID_alter() for uc_payment_method_settings_form().
  */
-function uc_cybersource_form_uc_payment_gateways_form_alter(&$form, &$form_state) {
-  $form['#submit'][] = 'uc_cybersource_payment_gateway_settings_submit';
+function uc_cybersource_form_uc_payment_method_settings_form_alter(&$form, &$form_state) {
+  if ($form_state['build_info']['args'][0] == 'credit') {
+    $form['#submit'][] = 'uc_cybersource_payment_gateway_settings_submit';
+  }
 }
 
 /**
@@ -99,8 +101,7 @@ function uc_cybersource_uc_payment_gateway() {
   if (!module_exists('uc_credit')) {
     return;
   }
-  $gateways[] = array(
-    'id' => 'cybersource',
+  $gateways['cybersource'] = array(
     'title' => t('CyberSource Silent Order POST'),
     'description' => t('Process credit card payments using the Silent Order POST service of CyberSource.'),
     'settings' => 'uc_cybersource_settings_form',
@@ -117,7 +118,7 @@ function uc_cybersource_uc_payment_gateway() {
 function uc_cybersource_hop_post() {
   if (!uc_cybersource_hop_include()) {
     watchdog('uc_cybersource_hop', 'Unable to receive HOP POST due to missing or unreadable HOP.php file.', array(), 'error');
-    drupal_set_header('HTTP/1.1 503 Service unavailable');
+    drupal_add_http_header('Status', '503 Service unavailable');
     drupal_set_title(t('Unable to receive HOP POST.'));
     print t('The site was unable to receive a HOP post because of a missing or unreadble HOP.php');
     exit();
@@ -197,7 +198,7 @@ function uc_cybersource_hop_include() {
   $hop_paths[0] = 'sites/all/libraries/uc_cybersource/HOP.php';
   $hop_paths[1] = drupal_get_path('module', 'uc_cybersource') . '/HOP.php';
   // Loop through possible paths, include and return TRUE when HOP.php is located.
-  foreach($hop_paths as $key => $path) {
+  foreach ($hop_paths as $key => $path) {
     if (file_exists($path)) {
       require_once($path);
       return TRUE;
@@ -226,7 +227,6 @@ function uc_cybersource_settings_form($form, &$form_state) {
       'test' => t('Test'),
     ),
     '#default_value' => variable_get('uc_cybersource_server', 'test'),
-    '#summary callback' => 'uc_summarize_null',
   );
   $form['uc_cybersource_method'] = array(
     '#type' => 'radios',
@@ -238,7 +238,6 @@ function uc_cybersource_settings_form($form, &$form_state) {
       'soap' => t('SOAP Toolkit API'),
     ),
     '#default_value' => variable_get('uc_cybersource_method', 'post'),
-    '#summary callback' => 'uc_summarize_null',
   );
 
   $form['uc_cybersource_avs'] = array(
@@ -258,7 +257,6 @@ function uc_cybersource_settings_form($form, &$form_state) {
     '#title' => t('SOAP Toolkit API settings'),
     '#collapsible' => TRUE,
     '#collapsed' => TRUE,
-    '#summary callback' => 'uc_summarize_null',
   );
   $form['soap']['uc_cybersource_soap_merchant_id'] = array(
     '#type' => 'textfield',
@@ -485,7 +483,7 @@ function uc_cybersource_hop_form($form, $form_state, $order) {
   // CyberSource posts payment confirmation to this URL.
   $data['orderPage_merchantURLPostAddress']= url('cybersource/hop-post', array('absolute' => TRUE));
   $data['orderPage_buyButtonText'] = t('Checkout');
-  $receipt_url = url('cybersource/hop-complete/'. $order->order_id, array('absolute' => TRUE));
+  $receipt_url = url('cybersource/hop-complete/' . $order->order_id, array('absolute' => TRUE));
   $data['orderPage_receiptResponseURL'] = $receipt_url;
   $data['orderPage_buyButtonText'] = variable_get('uc_cybersource_cs_hop_button_text', t('Process payment'));
   $comments = t('Order @order-id at @store-name', array('@order-id' => $order->order_id, '@store-name' => variable_get('uc_store_name', t('Our store'))));

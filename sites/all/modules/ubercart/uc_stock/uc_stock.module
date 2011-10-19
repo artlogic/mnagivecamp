@@ -37,20 +37,22 @@ function uc_stock_menu() {
   $items = array();
 
   $items['admin/store/settings/stock'] = array(
-    'title' => 'Stock settings',
-    'description' => 'View the stock settings.',
+    'title' => 'Stock notifications',
+    'description' => 'Enable or disable stock level notifications.',
     'page callback' => 'drupal_get_form',
     'page arguments' => array('uc_stock_settings_form'),
     'access arguments' => array('administer product stock'),
     'file' => 'uc_stock.admin.inc',
   );
-  $items['admin/store/reports/stock'] = array(
-    'title' => 'Stock reports',
-    'description' => 'View reports for product stock.',
-    'page callback' => 'uc_stock_report',
-    'access arguments' => array('view reports'),
-    'file' => 'uc_stock.admin.inc',
-  );
+  if (module_exists('uc_reports')) {
+    $items['admin/store/reports/stock'] = array(
+      'title' => 'Stock reports',
+      'description' => 'View reports for product stock.',
+      'page callback' => 'uc_stock_report',
+      'access arguments' => array('view reports'),
+      'file' => 'uc_stock.admin.inc',
+    );
+  }
   $items['node/%node/edit/stock'] = array(
     'title' => 'Stock',
     'page callback' => 'drupal_get_form',
@@ -163,12 +165,14 @@ function uc_stock_uc_order_product_delete($order_product_id) {
  *   The product SKU of the stock level to adjust.
  * @param $qty
  *   The amount to add to or subtract from the stock level.
+ * @param $check_active
+ *   If FALSE, don't check if stock tracking is active for this SKU.
  */
 function uc_stock_adjust($sku, $qty, $check_active = TRUE) {
   $stock = db_query("SELECT active, stock FROM {uc_product_stock} WHERE sku = :sku", array(':sku' => $sku))->fetchObject();
 
   if ($check_active) {
-    if (!$stock->active) {
+    if (!$stock || !$stock->active) {
       return;
     }
   }
@@ -216,10 +220,11 @@ function uc_stock_level($sku) {
 }
 
 /**
- * Check if a sku has an active stock record.
+ * Checks if a SKU has an active stock record.
  *
  * @param $sku
  *   The Ubercart product SKU to check
+ *
  * @return
  *   Boolean indicating whether or not the sku has an active stock record.
  */
@@ -241,8 +246,8 @@ function uc_stock_is_active($sku) {
  *   The result of drupal_mail().
  */
 function _uc_stock_send_mail($order, $stock) {
-  $token_filters = array('uc_order' => $order, 'uc_stock' => $stock);
-  $account = user_load($order);
+  $account = user_load($order->uid);
+  $token_filters = array('uc_order' => $order, 'user' => $account, 'uc_stock' => $stock);
 
   $to = variable_get('uc_stock_threshold_notification_recipients', variable_get('uc_store_email', ini_get('sendmail_from')));
   $to = explode(',', $to);

@@ -6,48 +6,17 @@
  */
 
 /**
- * Lists all products.
- */
-function uc_product_administration() {
-  $build = array();
-
-  $header = array();
-  $tbl_columns = uc_product_table_header();
-  foreach ($tbl_columns as $column) {
-    $header[] = $column['cell'];
-  }
-
-  // Display 50 products per page.
-  $query = db_select('node', 'n')->extend('PagerDefault')->extend('TableSort')
-    ->fields('n', array('nid'))
-    ->orderByHeader($header)
-    ->limit(50);
-  $query->join('uc_products', 'p', 'n.vid = p.vid');
-
-  $nids = $query->execute()->fetchCol();
-
-  // Display the product table and pager if necessary.
-  $build['table'] = tapir_get_table('uc_product_table', $nids);
-  $build['pager'] = array(
-    '#theme' => 'pager',
-    '#weight' => 5,
-  );
-
-  return $build;
-}
-
-/**
  * Displays a list of product classes.
  */
 function uc_product_class_default() {
-  $result = db_query("SELECT * FROM {uc_product_classes}");
+  $classes = uc_product_class_load();
   $header = array(t('Class ID'), t('Name'), t('Description'), t('Operations'));
   $rows = array();
-  foreach ($result as $class) {
-    $ops = array(
-      l(t('edit'), 'admin/store/products/classes/' . $class->pcid . '/edit'),
-      l(t('delete'), 'admin/store/products/classes/' . $class->pcid . '/delete'),
-    );
+  foreach ($classes as $class) {
+    $ops = array(l(t('edit'), 'admin/store/products/classes/' . $class->pcid . '/edit'));
+    if (empty($class->locked)) {
+      $ops[] = l(t('delete'), 'admin/store/products/classes/' . $class->pcid . '/delete');
+    }
     $rows[] = array(
       $class->pcid,
       $class->name,
@@ -74,36 +43,25 @@ function uc_product_class_default() {
 }
 
 /**
- * Displays overview of product settings.
- *
- * @see uc_product_settings_form()
- * @see uc_product_field_settings_form()
- */
-function uc_product_settings_overview() {
-  // Load the form summaries for pages beneath this path.
-  $summaries = uc_summarize_child_form_pages('admin/store/settings/products/edit');
-
-  // Theme it all up in a summaries overview.
-  return array(
-    '#theme' => 'uc_summary_overview',
-    '#summaries' => $summaries,
-  );
-}
-
-/**
  * Form to change product settings.
  *
- * @see uc_product_settings_overview()
  * @ingroup forms
  */
 function uc_product_settings_form($form, &$form_state) {
+  $form['product-settings'] = array('#type' => 'vertical_tabs');
+
+  $form['product'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Product settings'),
+    '#group' => 'product-settings',
+    '#weight' => -10,
+  );
+
   // Loop through all the integrated image widgets and build an options array.
   $options = array();
-
   foreach (module_invoke_all('uc_image_widget') as $key => $widget) {
     $options[$key] = check_plain($widget['name']);
   }
-
   if (empty($options)) {
     $options[NULL] = t('No image widgets installed.');
   }
@@ -112,7 +70,7 @@ function uc_product_settings_form($form, &$form_state) {
     $options['none'] = "Don't use any image widgets.";
   }
 
-  $form['uc_product_image_widget'] = array(
+  $form['product']['uc_product_image_widget'] = array(
     '#type' => 'radios',
     '#title' => t('Product image widget'),
     '#description' => t('The selected widget will be used to display a zoomed version of product images when they are clicked.'),
@@ -120,273 +78,32 @@ function uc_product_settings_form($form, &$form_state) {
     '#default_value' => variable_get('uc_product_image_widget', NULL),
   );
 
-  $form['uc_product_add_to_cart_qty'] = array(
+  $form['product']['uc_product_add_to_cart_qty'] = array(
     '#type' => 'checkbox',
     '#title' => t('Display an optional quantity field in the <em>Add to Cart</em> form.'),
     '#default_value' => variable_get('uc_product_add_to_cart_qty', FALSE),
-    '#summary arguments' => array(
-      t('The Quantity field in the <em>Add to Cart</em> form is enabled.'),
-      t('The Quantity field in the <em>Add to Cart</em> form is disabled.'),
-    ),
-  );
-  $form['uc_product_add_to_cart_teaser'] = array(
-    '#type' => 'checkbox',
-    '#title' => t('Enable <em>Add to cart</em> forms in product node teasers.'),
-    '#default_value' => variable_get('uc_product_add_to_cart_teaser', TRUE),
-    '#summary arguments' => array(
-      t('The <em>Add to Cart</em> form is enabled in product teasers.'),
-      t('The <em>Add to Cart</em> form is disabled in product teasers.'),
-    ),
   );
 
-  $form['uc_add_to_cart_text'] = array(
-    '#type' => 'fieldset',
-    '#title' => t('<em>Add to cart</em> button text'),
-    '#description' => t('Use the textboxes to adjust the text of the submit button for <em>Add to Cart</em> forms in various places on the site.'),
-    '#collapsed' => FALSE,
-    '#collapsible' => FALSE,
-  );
-  $form['uc_add_to_cart_text']['uc_teaser_add_to_cart_text'] = array(
-    '#type' => 'textfield',
-    '#title' => t('Teaser forms'),
-    '#description' => t('For the form displayed on teasers and catalog pages.'),
-    '#default_value' => variable_get('uc_teaser_add_to_cart_text', t('Add to cart')),
-    '#summary' => t('Teaser and catalog pages: %text', array('%text' => variable_get('uc_teaser_add_to_cart_text', t('Add to cart')))),
-    '#summary arguments' => array(FALSE),
-  );
-  $form['uc_add_to_cart_text']['uc_product_add_to_cart_text'] = array(
-    '#type' => 'textfield',
-    '#title' => t('Product view'),
-    '#description' => t('For the form displayed on the product view page.'),
-    '#default_value' => variable_get('uc_product_add_to_cart_text', t('Add to cart')),
-    '#summary' => t('Product view pages: %text', array('%text' => variable_get('uc_teaser_add_to_cart_text', t('Add to cart')))),
-    '#summary arguments' => array(FALSE),
-  );
-
-  return system_settings_form($form);
-}
-
-/**
- * Allows store administrators to control what product information is relavent to their store.
- *
- * @see uc_product_settings_overview()
- * @see _uc_product_fields_summarize()
- * @see theme_uc_product_field_settings_form()
- * @see uc_product_field_settings_form_reset()
- * @see uc_product_field_settings_form_submit()
- * @ingroup forms
- */
-function uc_product_field_settings_form($form, &$form_state) {
-  $options = array(
-    'model' => t('SKU'),
-    'display_price' => t('Display price'),
-    'list_price' => t('List price'),
-    'cost' => t("Cost (seen only by 'administer products' permission)"),
-    'sell_price' => t('Sell price'),
-    'weight' => t('Weight'),
-    'dimensions' => t('Dimensions'),
-    'add_to_cart' => variable_get('uc_product_add_to_cart_text', t('Add to cart')),
-  );
-
-  $enabled = variable_get('uc_product_field_enabled', array(
-    'model' => 'model',
-    'display_price' => 'display_price',
-    'sell_price' => 'sell_price',
-    'add_to_cart' => 'add_to_cart',
-  ));
-
-  $weight = variable_get('uc_product_field_weight', array(
-    'display_price' => -1,
-    'model' => 0,
-    'list_price' => 2,
-    'cost' => 3,
-    'sell_price' => 4,
-    'weight' => 5,
-    'dimensions' => 6,
-    'add_to_cart' => 10,
-  ));
-
-  $fields = array();
-  foreach ($options as $field => $value) {
-    $fields[$field] = array(
-      'title' => $value,
-      'enabled' => isset($enabled[$field]) ? $enabled[$field] : FALSE,
-      'weight' => $weight[$field],
-    );
-  }
-  uasort($fields, 'uc_weight_sort');
-  $form['fields'] = array('#tree' => TRUE);
-  $form['fields']['#summary callback'] = '_uc_product_fields_summarize';
-  $form['fields']['#summary arguments'] = array($options, $enabled, $weight);
-
-  foreach ($fields as $label => $field) {
-    $form['fields'][$label]['enabled'] = array(
-      '#type' => 'checkbox',
-      '#default_value' => $field['enabled'],
-    );
-    $form['fields'][$label]['title'] = array(
-      '#markup' => $field['title'],
-    );
-    $form['fields'][$label]['weight'] = array(
-      '#type' => 'weight',
-      '#delta' => 10,
-      '#default_value' => $field['weight'],
-    );
-  }
-
-  $form['actions'] = array('#type' => 'actions');
-  $form['actions']['submit'] = array(
-    '#type' => 'submit',
-    '#value' => t('Save configuration'),
-  );
-  $form['actions']['reset'] = array(
-    '#type' => 'submit',
-    '#value' => t('Reset to defaults'),
-    '#submit' => array('uc_product_field_settings_form_reset'),
-  );
-
-  return $form;
-}
-
-/**
- * Summary callback for product fields settings.
- *
- * @see uc_product_field_settings_form()
- */
-function _uc_product_fields_summarize($form, $options, $enabled, $weight) {
-
-  $fields = array();
-  foreach ($options as $field => $label) {
-    if (isset($enabled[$field]) ? $enabled[$field] : FALSE) {
-      $fields[$field] = array(
-        'enabled' => $enabled[$field],
-        'weight' => $weight[$field],
-        'data' => $label,
-      );
-    }
-  }
-  uasort($fields, 'uc_weight_sort');
-
-  foreach ($fields as $field) {
-    $item[] = $field['data'];
-  }
-
-  $items[] = array(
-    'data' => t('Displayed product fields:'),
-    'children' => $item,
-  );
-
-  return $items;
-}
-
-/**
- * Displays the product field settings form.
- *
- * @see uc_product_field_settings_form()
- * @ingroup themeable
- */
-function theme_uc_product_field_settings_form($variables) {
-  $form = $variables['form'];
-
-  $header = array(t('Enable'), t('Product field'), t('List position'));
-  $rows = array();
-  foreach (element_children($form['fields']) as $field) {
-    $row = array();
-    $row[] = drupal_render($form['fields'][$field]['enabled']);
-    $row[] = drupal_render($form['fields'][$field]['title']);
-    $row[] = drupal_render($form['fields'][$field]['weight']);
-    $rows[] = $row;
-  }
-  $output = theme('table', array('header' => $header, 'rows' => $rows));
-
-  $output .= drupal_render_children($form);
-  return $output;
-}
-
-/**
- * Resets field settings to their default values.
- *
- * @see uc_product_field_settings_form()
- */
-function uc_product_field_settings_form_reset($form, &$form_state) {
-  variable_del('uc_product_field_enabled');
-  variable_del('uc_product_field_weight');
-
-  drupal_set_message(t('The configuration options have been reset to their default values.'));
-}
-
-/**
- * Saves the product fields settings.
- *
- * @see uc_product_field_settings_form()
- */
-function uc_product_field_settings_form_submit($form, &$form_state) {
-  $enabled = array();
-  $weight = array();
-  foreach ($form_state['values']['fields'] as $id => $field) {
-    $enabled[$id] = $field['enabled'];
-    $weight[$id] = $field['weight'];
-  }
-  variable_set('uc_product_field_enabled', $enabled);
-  variable_set('uc_product_field_weight', $weight);
-
-  drupal_set_message(t('The configuration options have been saved.'));
-}
-
-/**
- * Displays the settings form for all product features.
- *
- * @see _uc_product_features_summarize()
- * @ingroup forms
- */
-function uc_product_feature_settings_form($form, &$form_state) {
-  $titles = array();
-  $features = module_invoke_all('uc_product_feature');
-  foreach ($features as $feature) {
-    $titles[] = $feature['title'];
-  }
-  if (empty($titles)) {
-    $titles[] = '<em>' . t('No product features found.') . '</em>';
-  }
-  $form['features_list'] = array(
-    '#markup' => '<div><b>' . t('The following product features are enabled')
-               . ':</b><br />' . implode(', ', $titles) . '</div><br />',
-    '#summary callback' => '_uc_product_features_summarize',
-    '#summary arguments' => array($titles),
-  );
-
-  foreach ($features as $feature) {
-    if (function_exists($feature['settings'])) {
+  foreach (module_invoke_all('uc_product_feature') as $feature) {
+    if (isset($feature['settings']) &&
+        function_exists($feature['settings'])) {
       $form[$feature['id']] = array(
         '#type' => 'fieldset',
         '#title' => t('!feature settings', array('!feature' => $feature['title'])),
-        '#collapsible' => TRUE,
-        '#collapsed' => TRUE,
-        '#summary callback' => 'uc_summarize_null',
+        '#group' => 'product-settings',
       );
-      $form[$feature['id']] = array_merge($form[$feature['id']], $feature['settings'](array(), $form_state));
+      $form[$feature['id']] += $feature['settings'](array(), $form_state);
+
+      if (function_exists($feature['settings'] . '_validate')) {
+        $form['#validate'][] = $feature['settings'] . '_validate';
+      }
+      if (function_exists($feature['settings'] . '_submit')) {
+        $form['#submit'][] = $feature['settings'] . '_submit';
+      }
     }
   }
 
   return system_settings_form($form);
-}
-
-/**
- * Summary callback for uc_product_feature_settings_form().
- */
-function _uc_product_features_summarize($form, $titles) {
-
-  foreach ($titles as $title) {
-    $item[] = $title;
-  }
-
-  $items[] = array(
-    'data' => t('The following features are enabled:'),
-    'children' => $item,
-  );
-
-  return $items;
-
 }
 
 /**
@@ -408,8 +125,8 @@ function uc_product_features($node, $fid = NULL, $pfid = NULL) {
   else {
     foreach ($features as $feature) {
       $operations = array(
-        l(t('edit'), 'node/'. $node->nid .'/edit/features/'. $feature->fid .'/'. $feature->pfid),
-        l(t('delete'), 'node/'. $node->nid .'/edit/features/'. $feature->fid .'/'. $feature->pfid .'/delete'),
+        l(t('edit'), 'node/' . $node->nid . '/edit/features/' . $feature->fid . '/' . $feature->pfid),
+        l(t('delete'), 'node/' . $node->nid . '/edit/features/' . $feature->fid . '/' . $feature->pfid . '/delete'),
       );
       $rows[] = array(
         'data' => array(
@@ -559,13 +276,7 @@ function uc_product_feature_confirm_delete_submit($form, &$form_state) {
 }
 
 /**
- * Sets up imagefield and imagecache for products.
- *
- * @param $checks
- *   A bitmap describing the state of the image modules. Four checks are made
- *   to fill this bitmap: an imagefield exists, an imagefield is attached to
- *   product, the imagecache presets exist, and each preset has at least one
- *   action.
+ * Sets up image field for products.
  *
  * @see uc_product_uc_store_status()
  */
@@ -667,6 +378,14 @@ function uc_product_class_form_submit($form, &$form_state) {
       'name' => $form_state['values']['name'],
       'description' => $form_state['values']['description'],
     ))
+    ->execute();
+
+  db_update('node_type')
+    ->fields(array(
+      'name' => $form_state['values']['name'],
+      'description' => $form_state['values']['description'],
+    ))
+    ->condition('type', $pcid)
     ->execute();
 
   uc_product_node_info(TRUE);

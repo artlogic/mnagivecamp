@@ -2,15 +2,18 @@
 
 /**
  * @file
- * Google Checkout administration menu items.
+ * Callback functions to handle responses from Google Checkout.
  */
 
+/**
+ * Handles Google Checkout payment notification callback.
+ */
 function uc_google_checkout_callback() {
   if (isset($_POST['serial-number'])) {
     $request = '<?xml version="1.0" encoding="UTF-8"?>';
     $request .= "\n";
     $request .= '<notification-history-request xmlns="http://checkout.google.com/schema/2">';
-    $request .= '<serial-number>'. check_plain($_POST['serial-number']) .'</serial-number>';
+    $request .= '<serial-number>' . check_plain($_POST['serial-number']) . '</serial-number>';
     $request .= '</notification-history-request>';
 
     if ($response = uc_google_checkout_send_request('reports', $request)) {
@@ -50,6 +53,9 @@ function uc_google_checkout_callback() {
   return MENU_NOT_FOUND;
 }
 
+/**
+ * Verifies Google Checkout shipping calculation.
+ */
 function uc_google_checkout_merchant_calculation() {
   // Error checking.
   if (variable_get('uc_google_checkout_mode', 'checkout') == 'checkout') {
@@ -97,7 +103,7 @@ function uc_google_checkout_merchant_calculation() {
   $country = uc_get_country_data(array('country_iso_code_2' => $address->{'country-code'}));
   $order->delivery_country = $country[0]['country_id'];
   $order->delivery_city = $address->city;
-  $zone_id = db_result(db_query("SELECT zone_id FROM {uc_zones} WHERE zone_code = '%s' AND zone_country_id = %d", $address->region, $order->delivery_country));
+  $zone_id = db_query("SELECT zone_id FROM {uc_zones} WHERE zone_code = :code AND zone_country_id = :cid", array(':code' => $address->region, ':cid' => $order->delivery_country))->fetchField();
   $order->delivery_zone = $zone_id;
   $order->delivery_postal_code = $address->{'postal-code'};
 
@@ -105,13 +111,13 @@ function uc_google_checkout_merchant_calculation() {
 
   $methods = module_invoke_all('shipping_method');
   module_load_include('inc', 'uc_quote', 'uc_quote.pages');
-  $quote_data = _uc_quote_assemble_quotes($order);
+  $quote_data = uc_quote_assemble_quotes($order);
   $results = '';
   foreach ($quote_data as $method_id => $options) {
     foreach ($options as $accsrl => $data) {
-      $results .= '<result shipping-name="'. $methods[$method_id]['quote']['accessorials'][$accsrl] .'" address-id="'. $address['id'] .'">';
+      $results .= '<result shipping-name="' . check_plain($methods[$method_id]['quote']['accessorials'][$accsrl]) . '" address-id="' . $address['id'] . '">';
 
-      $results .= '<shipping-rate currency="'. variable_get('uc_currency_code', 'USD') .'">'. $data['rate'] .'</shipping-rate>';
+      $results .= '<shipping-rate currency="' . variable_get('uc_currency_code', 'USD') . '">' . $data['rate'] . '</shipping-rate>';
       $results .= '<shippable>true</shippable>';
 
       $results .= '</result>';
@@ -126,12 +132,12 @@ function uc_google_checkout_merchant_calculation() {
     $response .= '</results>';
     $response .= '</merchant-calculation-results>';
 
-    drupal_set_header('HTTP/1.1 200 OK');
+    drupal_add_http_header('Status', '200 OK');
     print $response;
     exit();
   }
 
-  drupal_set_header('HTTP/1.1 204 No Content');
+  drupal_add_http_header('Status', '204 No Content');
   exit();
   // So there!
 }

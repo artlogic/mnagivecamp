@@ -11,10 +11,13 @@ the API.
 
 Hooks provided:
 <code>
-hook_styles_containers()
-hook_styles_styles()
-hook_styles_containers_alter(&$style)
-hook_styles_styles_alter(&$style)
+hook_styles_default_containers()
+hook_styles_default_styles()
+hook_styles_default_presets()
+hook_styles_default_containers_alter(&$style)
+hook_styles_default_styles_alter(&$style)
+hook_styles_default_presets_alter(&$style)
+hook_styles_delete(&$style)
 </code>
 
 See http://groups.drupal.org/node/35206 for a quick background.

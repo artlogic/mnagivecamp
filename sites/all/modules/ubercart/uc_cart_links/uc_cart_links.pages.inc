@@ -2,19 +2,23 @@
 
 /**
  * @file
- * Cart links menu items.
+ * Cart Links menu items.
  */
 
 /**
- * Preprocesses a cart link and confirm with the user if a destructive action
+ * Preprocesses a Cart Link and confirm with the user if a destructive action
  * is included.
+ *
+ * @see uc_cart_links_form_submit()
  */
 function uc_cart_links_form($form, &$form_state, $arg1) {
   // Fail if the link is restricted.
   $data = variable_get('uc_cart_links_restrictions', '');
   if (!empty($data)) {
     $restrictions = explode("\n", variable_get('uc_cart_links_restrictions', ''));
-    if (!empty($restrictions) && !in_array($cart_action, $restrictions)) {
+    $restrictions = array_map('trim', $restrictions);
+
+    if (!empty($restrictions) && !in_array($arg1, $restrictions)) {
       $url = variable_get('uc_cart_links_invalid_page', '');
       if (empty($url)) {
         $url = '<front>';
@@ -40,12 +44,17 @@ function uc_cart_links_form($form, &$form_state, $arg1) {
   uc_cart_links_process($arg1);
 }
 
+/**
+ * Submit handler for uc_cart_links_form().
+ *
+ * @see uc_cart_links_form()
+ */
 function uc_cart_links_form_submit($form, &$form_state) {
   uc_cart_links_process(arg(2));
 }
 
 /**
- * Processes a cart link to fiddle with the cart and redirect the user.
+ * Processes a Cart Link to fiddle with the cart and redirect the user.
  *
  * @param $cart_action
  *   An action.
@@ -54,11 +63,11 @@ function uc_cart_links_process($cart_action) {
   $actions = explode('-', urldecode($cart_action));
   $rebuild_cart = FALSE;
   $messages = array();
-  $id = '';
+  $id = t('(not specified)');
 
   foreach ($actions as $action) {
     switch (drupal_substr($action, 0, 1)) {
-      // Set the ID of the cart link.
+      // Set the ID of the Cart Link.
       case 'i':
       case 'I':
         $id = drupal_substr($action, 1);
@@ -80,12 +89,12 @@ function uc_cart_links_process($cart_action) {
             case 'P':
               $p['nid'] = intval(drupal_substr($part, 1));
               break;
-            // Set the quantity to add to cart: q2
+            // Set the quantity to add to cart: _q2
             case 'q':
             case 'Q':
               $p['qty'] = intval(drupal_substr($part, 1));
               break;
-            // Set an attribute/option for the product: a3o6
+            // Set an attribute/option for the product: _a3o6
             case 'a':
             case 'A':
               $attribute = intval(drupal_substr($part, 1, stripos($part, 'o') - 1));
@@ -110,10 +119,10 @@ function uc_cart_links_process($cart_action) {
                 }
               }
               break;
-            // Suppress the add to cart message: m0
-            case 'm':
-            case 'M':
-              $msg = intval(drupal_substr($part, 1)) == 1 ? TRUE : FALSE;
+            // Suppress the add to cart message: _s
+            case 's':
+            case 'S':
+              $msg = FALSE;
               break;
           }
         }
@@ -136,7 +145,7 @@ function uc_cart_links_process($cart_action) {
             $rebuild_cart = TRUE;
           }
           else {
-            watchdog('uc_cart_link', 'Cart link on %url tried to add an unpublished product to the cart.', array('%url' => uc_referer_uri()), WATCHDOG_ERROR);
+            watchdog('uc_cart_link', 'Cart Link on %url tried to add an unpublished product to the cart.', array('%url' => $_SERVER['HTTP_REFERER']), WATCHDOG_ERROR);
           }
         }
         break;
@@ -157,7 +166,7 @@ function uc_cart_links_process($cart_action) {
           $data = explode("\n", variable_get('uc_cart_links_messages', ''));
           foreach ($data as $message) {
             list($mkey, $mdata) = explode('|', $message, 2);
-            $messages[$mkey] = $mdata;
+            $messages[trim($mkey)] = trim($mdata);
           }
         }
 
@@ -186,7 +195,7 @@ function uc_cart_links_process($cart_action) {
       ->execute();
   }
 
-  $_SESSION['uc_cart_last_url'] = uc_referer_uri();
+  $_SESSION['uc_cart_last_url'] = $_SERVER['HTTP_REFERER'];
 
   drupal_goto();
 }

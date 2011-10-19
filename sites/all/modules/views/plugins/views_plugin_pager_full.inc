@@ -1,5 +1,4 @@
 <?php
-// $Id: views_plugin_pager_full.inc,v 1.1.4.14 2010/12/16 20:32:17 dereine Exp $
 
 /**
  * The plugin to handle full pager.
@@ -9,9 +8,9 @@
 class views_plugin_pager_full extends views_plugin_pager {
   function summary_title() {
     if (!empty($this->options['offset'])) {
-      return format_plural($this->options['items_per_page'], 'Paged, @count item, skip @skip', 'Paged, @count items, skip @skip', array('@count' => $this->options['items_per_page'], '@skip' => $this->options['offset']));
+      return format_plural($this->options['items_per_page'], '@count item, skip @skip', 'Paged, @count items, skip @skip', array('@count' => $this->options['items_per_page'], '@skip' => $this->options['offset']));
     }
-      return format_plural($this->options['items_per_page'], 'Paged, @count item', 'Paged, @count items', array('@count' => $this->options['items_per_page']));
+      return format_plural($this->options['items_per_page'], '@count item', 'Paged, @count items', array('@count' => $this->options['items_per_page']));
   }
 
   function option_definition() {
@@ -39,10 +38,11 @@ class views_plugin_pager_full extends views_plugin_pager {
    * Provide the default form for setting options.
    */
   function options_form(&$form, &$form_state) {
+    $pager_text = $this->display->handler->get_pager_text();
     $form['items_per_page'] = array(
-      '#title' => t('Items per page'),
+      '#title' => $pager_text['items per page title'],
       '#type' => 'textfield',
-      '#description' => t('The number of items to display per page. Enter 0 for no limit.'),
+      '#description' => $pager_text['items per page description'],
       '#default_value' => $this->options['items_per_page'],
     );
 
@@ -90,7 +90,6 @@ class views_plugin_pager_full extends views_plugin_pager {
       '#required' => TRUE,
       '#description' => t('Label to use in the exposed items per page form element.'),
       '#default_value' => $this->options['expose']['items_per_page_label'],
-      '#process' => array('ctools_dependent_process'),
       '#dependency' => array(
         'edit-pager-options-expose-items-per-page' => array(1)
       ),
@@ -102,7 +101,6 @@ class views_plugin_pager_full extends views_plugin_pager {
       '#required' => TRUE,
       '#description' => t('Set between which values the user can choose when determining the items per page. Separated by comma.'),
       '#default_value' => $this->options['expose']['items_per_page_options'],
-      '#process' => array('ctools_dependent_process'),
       '#dependency' => array(
         'edit-pager-options-expose-items-per-page' => array(1)
       ),
@@ -121,7 +119,6 @@ class views_plugin_pager_full extends views_plugin_pager {
       '#title' => t('All items label'),
       '#description' => t('Which label will be used to display all items'),
       '#default_value' => $this->options['expose']['items_per_page_options_all_label'],
-      '#process' => array('ctools_dependent_process'),
       '#dependency' => array(
         'edit-items-per-page-options-all' => array(1),
       ),
@@ -140,7 +137,6 @@ class views_plugin_pager_full extends views_plugin_pager {
       '#required' => TRUE,
       '#description' => t('Label to use in the exposed offset form element.'),
       '#default_value' => $this->options['expose']['offset_label'],
-      '#process' => array('ctools_dependent_process'),
       '#dependency' => array(
         'edit-pager-options-expose-offset' => array(1)
       ),
@@ -201,7 +197,7 @@ class views_plugin_pager_full extends views_plugin_pager {
   function render($input) {
     $pager_theme = views_theme_functions('pager', $this->view, $this->display);
     $output = theme($pager_theme, array(
-      'tags' => $input, 'element' => $this->options['id']));
+      'parameters' => $input, 'element' => $this->options['id']));
     return $output;
   }
 
@@ -227,6 +223,9 @@ class views_plugin_pager_full extends views_plugin_pager {
     $this->current_page = 0;
     if (!empty($pager_page_array[$this->options['id']])) {
       $this->current_page = intval($pager_page_array[$this->options['id']]);
+    }
+    if ($this->current_page < 0) {
+      $this->current_page = 0;
     }
   }
 
@@ -257,7 +256,9 @@ class views_plugin_pager_full extends views_plugin_pager {
     $items_per_page = $this->get_items_per_page();
     if (!empty($items_per_page)) {
       // Dump information about what we already know into the globals.
-      global $pager_page_array, $pager_total, $pager_total_items;
+      global $pager_page_array, $pager_total, $pager_total_items, $pager_limits;
+      // Set the limit.
+      $pager_limits[$this->options['id']] = $this->options['items_per_page'];
       // Set the item count for the pager.
       $pager_total_items[$this->options['id']] = $this->total_items;
       // Calculate and set the count of available pages.

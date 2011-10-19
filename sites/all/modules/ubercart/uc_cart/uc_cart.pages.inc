@@ -18,11 +18,6 @@ function uc_cart_view() {
     return MENU_NOT_FOUND;
   }
 
-  // Clear the cart order session variable if it exists.
-  if (!empty($_SESSION['cart_order'])) {
-    unset($_SESSION['cart_order']);
-  }
-
   // Load the array of shopping cart items.
   $items = uc_cart_get_contents();
 
@@ -35,11 +30,11 @@ function uc_cart_view() {
 
   $build = array();
   // Load through the cart panes...
-  foreach (uc_cart_cart_pane_list($items) as $pane) {
+  foreach (uc_cart_cart_pane_list($items) as $id => $pane) {
     // If the pane is enabled...
     if ($pane['enabled']) {
       // Add its output to the cart view.
-      $build[$pane['id']] = $pane['body'];
+      $build[$id] = $pane['body'];
     }
   }
 
@@ -89,17 +84,7 @@ function uc_cart_checkout() {
     drupal_goto('user', array('query' => drupal_get_destination()));
   }
 
-  $list = _uc_line_item_list();
-  foreach ($list as $line_item) {
-    if (isset($line_item['callback']) && function_exists($line_item['callback'])) {
-      $line_item['callback']('cart-preview', $items);
-    }
-  }
-
-  drupal_add_js(drupal_get_path('module', 'uc_cart') . '/uc_cart.js');
-  $build = drupal_get_form('uc_cart_checkout_form');
-
-  return $build;
+  return drupal_get_form('uc_cart_checkout_form');
 }
 
 /**
@@ -126,23 +111,37 @@ function uc_cart_checkout_form($form, &$form_state) {
     }
   }
 
-  // Check the referer URI to clear order details and prevent identity theft.
-  if (uc_referer_check(array('cart/checkout', 'cart/checkout/review'))) {
-    if ($order == FALSE || uc_order_status_data($order->order_status, 'state') != 'in_checkout') {
-      unset($_SESSION['cart_order']);
-      $order = NULL;
-    }
-    elseif (uc_order_status_data($order->order_status, 'state') != 'in_checkout' || ($user->uid > 0 && $user->uid != $order->uid)) {
-      $order = NULL;
-    }
+  // If there hasn't been activity on the checkout page for 20 minutes, clear
+  // order details and prevent identity theft.
+  if (!$order || uc_order_status_data($order->order_status, 'state') != 'in_checkout' || $order->modified < REQUEST_TIME - 600 || ($user->uid > 0 && $user->uid != $order->uid)) {
+    $order = uc_order_new($user->uid);
+    $_SESSION['cart_order'] = $order->order_id;
   }
+  // For existing orders, delete products so they can be refreshed from cart contents.
   else {
-    unset($_SESSION['cart_order']);
-    $order = NULL;
+    db_delete('uc_order_products')
+    ->condition('order_id', $order->order_id)
+    ->execute();
   }
 
-  if (is_null($order)) {
-    $order = new UcOrder();
+  // Refresh the order line-items and products.
+  $order->products = uc_cart_get_contents();
+  $order->line_items = uc_order_load_line_items($order);
+  $order->order_total = uc_order_get_total($order, TRUE);
+
+  // Store the order.
+  $form_state['storage']['order'] = $order;
+
+  $form['#attributes']['class'][] = 'uc-cart-checkout-form';
+  $form['#attached']['js'][] = drupal_get_path('module', 'uc_cart') . '/uc_cart.js';
+  $form['#attached']['css'][] = drupal_get_path('module', 'uc_cart') . '/uc_cart.css';
+
+  if ($instructions = variable_get('uc_checkout_instructions', '')) {
+    $form['instructions'] = array(
+      '#prefix' => '<div id="checkout-instructions">',
+      '#markup' => filter_xss_admin($instructions),
+      '#suffix' => '</div>',
+    );
   }
 
   $form['panes'] = array('#tree' => TRUE);
@@ -153,19 +152,16 @@ function uc_cart_checkout_form($form, &$form_state) {
     $panes = uc_cart_filter_checkout_panes($panes, array('shippable' => TRUE));
   }
 
-  foreach ($panes as $pane) {
-    if (variable_get('uc_pane_' . $pane['id'] . '_enabled', $pane['enabled'])) {
-      $pane['prev'] = _uc_cart_checkout_prev_pane($panes, $pane['id']);
-      $pane['next'] = _uc_cart_checkout_next_pane($panes, $pane['id']);
+  foreach ($panes as $id => $pane) {
+    if ($pane['enabled']) {
+      $pane['prev'] = _uc_cart_checkout_prev_pane($panes, $id);
+      $pane['next'] = _uc_cart_checkout_next_pane($panes, $id);
 
       if (!isset($pane['collapsed'])) {
         $collapsed = ($pane['prev'] === FALSE || empty($displayed[$pane['prev']])) ? FALSE : TRUE;
       }
-      if (isset($form_state['expanded_panes'])) {
-        if (is_array($form_state['expanded_panes']) &&
-            in_array($pane['id'], $form_state['expanded_panes'])) {
-          $collapsed = FALSE;
-        }
+      if (isset($form_state['expanded_panes']) && in_array($id, $form_state['expanded_panes'])) {
+        $collapsed = FALSE;
       }
 
       $return = $pane['callback']('view', $order, $form, $form_state);
@@ -173,26 +169,26 @@ function uc_cart_checkout_form($form, &$form_state) {
       // Add the pane if any display data is returned from the callback.
       if (is_array($return) && (!empty($return['description']) || !empty($return['contents']))) {
         // Create the fieldset for the pane.
-        $form['panes'][$pane['id']] = array(
+        $form['panes'][$id] = array(
           '#type' => 'fieldset',
           '#title' => $pane['title'],
           '#description' => !empty($return['description']) ? $return['description'] : NULL,
           '#collapsible' => $pane['collapsible'],
           '#collapsed' => variable_get('uc_use_next_buttons', FALSE) ? $collapsed : FALSE,
-          '#id' => $pane['id'] . '-pane',
+          '#id' => $id . '-pane',
           '#theme' => isset($return['theme']) ? $return['theme'] : NULL,
         );
 
         // Add the contents of the fieldset if any were returned.
         if (!empty($return['contents'])) {
-          $form['panes'][$pane['id']] = array_merge($form['panes'][$pane['id']], $return['contents']);
+          $form['panes'][$id] = array_merge($form['panes'][$id], $return['contents']);
         }
 
         // Add the 'Next' button if necessary.
         if ((!isset($return['next-button']) || $return['next-button'] !== FALSE) && $pane['next'] !== FALSE &&
             variable_get('uc_use_next_buttons', FALSE) != FALSE) {
-          $opt = variable_get('uc_collapse_current_pane', FALSE) ? $pane['id'] : 'false';
-          $form['panes'][$pane['id']]['next'] = array(
+          $opt = variable_get('uc_collapse_current_pane', FALSE) ? $id : 'false';
+          $form['panes'][$id]['next'] = array(
             '#type' => 'button',
             '#value' => t('Next'),
             '#weight' => 20,
@@ -203,18 +199,11 @@ function uc_cart_checkout_form($form, &$form_state) {
         }
 
         // Log that this pane was actually displayed.
-        $displayed[$pane['id']] = TRUE;
+        $displayed[$id] = TRUE;
       }
     }
   }
   unset($form_state['expanded_panes']);
-
-  $contents = uc_cart_get_contents();
-
-  $form['cart_contents'] = array(
-    '#type' => 'hidden',
-    '#value' => serialize($contents),
-  );
 
   $form['actions'] = array('#type' => 'actions');
   $form['actions']['cancel'] = array(
@@ -229,41 +218,19 @@ function uc_cart_checkout_form($form, &$form_state) {
     '#value' => t('Review order'),
   );
 
+  unset($_SESSION['do_review']);
+
   return $form;
 }
 
 /**
- * Adds markup and styling to the checkout panes.
+ * Default theme function for the checkout form.
  *
  * @see uc_cart_checkout_form()
  * @ingroup themeable
  */
 function theme_uc_cart_checkout_form($variables) {
-  $form = $variables['form'];
-
-  drupal_add_css(drupal_get_path('module', 'uc_cart') . '/uc_cart.css');
-
-  $output = '<div id="checkout-instructions">' . filter_xss_admin(variable_get('uc_checkout_instructions', '')) . '</div>';
-
-  foreach (element_children($form['panes']) as $pane_id) {
-    if (function_exists(($func = _uc_checkout_pane_data($pane_id, 'callback')))) {
-      $result = $func('theme', $form['panes'][$pane_id], NULL);
-      if (!empty($result)) {
-        $output .= $result;
-        $form['panes'][$pane_id] = array();
-      }
-      else {
-        $output .= drupal_render($form['panes'][$pane_id]);
-      }
-    }
-    else {
-      $output .= drupal_render($form['panes'][$pane_id]);
-    }
-  }
-
-  $output .= '<div id="checkout-form-bottom">' . drupal_render_children($form) . '</div>';
-
-  return $output;
+  return drupal_render_children($variables['form']);
 }
 
 /**
@@ -275,21 +242,10 @@ function theme_uc_cart_checkout_form($variables) {
 function uc_cart_checkout_form_validate($form, &$form_state) {
   global $user;
 
-  if (empty($form_state['storage']['order'])) {
-    $order = uc_order_new($user->uid);
-    $form_state['storage']['order'] = $order;
-  }
-  else {
-    $order = $form_state['storage']['order'];
-  }
-  $_SESSION['cart_order'] = $order->order_id;
+  $order = $form_state['storage']['order'];
 
-  db_delete('uc_order_products')
-    ->condition('order_id', $order->order_id)
-    ->execute();
-  $order->products = unserialize($form_state['values']['cart_contents']);
-
-  $order->order_total = uc_order_get_total($order, TRUE);
+  // Update the order "modified" time to prevent timeout on ajax requests.
+  $order->modified = REQUEST_TIME;
 
   // Validate/process the cart panes.  A FALSE value results in failed checkout.
   $form_state['checkout_valid'] = TRUE;
@@ -304,13 +260,7 @@ function uc_cart_checkout_form_validate($form, &$form_state) {
     }
   }
 
-  $order->line_items = uc_order_load_line_items($order, TRUE);
-  $order->line_items = array_merge($order->line_items, uc_order_load_line_items($order, FALSE));
-  usort($order->line_items, 'uc_weight_sort');
-
-  uc_order_save($order);
-
-  $form_state['storage']['order'] = uc_order_load($order->order_id, TRUE);
+  $form_state['storage']['order'] = $order;
 }
 
 /**
@@ -320,6 +270,9 @@ function uc_cart_checkout_form_validate($form, &$form_state) {
  * @see uc_cart_checkout_form_validate()
  */
 function uc_cart_checkout_form_submit($form, &$form_state) {
+  $order = $form_state['storage']['order'];
+  uc_order_save($order);
+
   if ($form_state['checkout_valid'] === FALSE) {
     $url = 'cart/checkout';
   }
@@ -337,8 +290,8 @@ function uc_cart_checkout_form_submit($form, &$form_state) {
  * @see uc_checkout_form()
  */
 function uc_cart_checkout_form_cancel($form, &$form_state) {
-  if (intval($_SESSION['cart_order']) > 0) {
-    uc_order_comment_save($_SESSION['cart_order'], 0, t('Customer cancelled this order from the checkout form.'));
+  if (isset($_SESSION['cart_order']) && intval($_SESSION['cart_order']) > 0) {
+    uc_order_comment_save($_SESSION['cart_order'], 0, t('Customer canceled this order from the checkout form.'));
     unset($_SESSION['cart_order']);
   }
 
@@ -352,12 +305,10 @@ function uc_cart_checkout_form_cancel($form, &$form_state) {
  */
 function uc_cart_checkout_review() {
   drupal_add_js(drupal_get_path('module', 'uc_cart') . '/uc_cart.js');
-  $form = drupal_get_form('uc_cart_checkout_review_form');
 
-  if ((!isset($_SESSION['do_review']) || $_SESSION['do_review'] !== TRUE) && !uc_referer_check('cart/checkout')) {
+  if (empty($_SESSION['do_review'])) {
     drupal_goto('cart/checkout');
   }
-  unset($_SESSION['do_review']);
 
   $order = uc_order_load($_SESSION['cart_order']);
 
@@ -374,7 +325,7 @@ function uc_cart_checkout_review() {
   }
 
   foreach ($panes as $pane) {
-    if (variable_get('uc_pane_' . $pane['id'] . '_enabled', TRUE)) {
+    if ($pane['enabled']) {
       $func = $pane['callback'];
       if (function_exists($func)) {
         $return = $func('review', $order, NULL);
@@ -388,7 +339,7 @@ function uc_cart_checkout_review() {
   $build = array(
     '#theme' => 'uc_cart_checkout_review',
     '#panes' => $data,
-    '#form' => $form,
+    '#form' => drupal_get_form('uc_cart_checkout_review_form', $order),
   );
 
   return $build;
@@ -456,15 +407,11 @@ function theme_uc_cart_checkout_review($variables) {
  * Gives customers the option to finish checkout or go revise their information.
  *
  * @see uc_cart_checkout_review_form_back()
- * @see uc-cart_checkout_review_form_submit()
+ * @see uc_cart_checkout_review_form_submit()
  * @ingroup forms
  */
-function uc_cart_checkout_review_form($form, &$form_state) {
-  // Set the session variable to pass the redirect check on the pageload.
-  // @todo This value should be in $form_state somewhere.
-  if (isset($_POST['op']) && $_POST['op'] == t('Back')) {
-    $_SESSION['do_review'] = TRUE;
-  }
+function uc_cart_checkout_review_form($form, &$form_state, $order) {
+  $form_state['uc_order'] = $order;
 
   $form['actions'] = array('#type' => 'actions');
   $form['actions']['back'] = array(
@@ -525,10 +472,10 @@ function uc_cart_checkout_review_form_submit($form, &$form_state) {
   }
 
   if ($error) {
-    $_SESSION['do_review'] = TRUE;
     $form_state['redirect'] = 'cart/checkout/review';
   }
   else {
+    unset($_SESSION['do_review']);
     $_SESSION['do_complete'] = TRUE;
     $form_state['redirect'] = 'cart/checkout/complete';
   }
@@ -552,6 +499,7 @@ function uc_cart_checkout_complete() {
   }
 
   $build = uc_cart_complete_sale($order, variable_get('uc_new_customer_login', FALSE));
+  unset($_SESSION['do_complete'], $_SESSION['cart_order']);
 
   // Add a comment to let sales team know this came in through the site.
   uc_order_comment_save($order->order_id, 0, t('Order created through website.'), 'admin');

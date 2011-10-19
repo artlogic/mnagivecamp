@@ -65,8 +65,6 @@ function template_preprocess_gmap_views_view_gmapextended(&$vars) {
   */
 
   foreach ($markers as $offset => $marker) {
-    $markers[$offset]['opts'] = array('title' => isset($marker['title']) ? $marker['title'] : NULL);
-
     switch ($options['clickmode']) {
       case 'render':
         $markers[$offset]['text'] = $vars['result'][$offset];

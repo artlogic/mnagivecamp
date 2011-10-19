@@ -1,5 +1,4 @@
 <?php
-// $Id: handlers.inc,v 1.119.4.22 2011/01/05 22:40:08 dereine Exp $
 /**
  * @file handlers.inc
  * Defines the various handler objects to help build and display views.
@@ -8,7 +7,7 @@
 /**
  * Instantiate and construct a new handler
  */
-function _views_create_handler($definition, $type = 'handler') {
+function _views_create_handler($definition, $type = 'handler', $handler_type = NULL) {
 //  debug('Instantiating handler ' . $definition['handler']);
   if (empty($definition['handler'])) {
     return;
@@ -32,6 +31,15 @@ function _views_create_handler($definition, $type = 'handler') {
    }
 
   $handler->set_definition($definition);
+  if ($type == 'handler') {
+    $handler->is_handler = TRUE;
+    $handler->handler_type = $handler_type;
+  }
+  else {
+    $handler->is_plugin = TRUE;
+    $handler->plugin_type = $type;
+  }
+
   // let the handler have something like a constructor.
   $handler->construct();
 
@@ -41,7 +49,7 @@ function _views_create_handler($definition, $type = 'handler') {
 /**
  * Prepare a handler's data by checking defaults and such.
  */
-function _views_prepare_handler($definition, $data, $field) {
+function _views_prepare_handler($definition, $data, $field, $type) {
   foreach (array('group', 'title', 'title short', 'help', 'real field') as $key) {
     if (!isset($definition[$key])) {
       // First check the field level
@@ -55,7 +63,7 @@ function _views_prepare_handler($definition, $data, $field) {
     }
   }
 
-  return _views_create_handler($definition);
+  return _views_create_handler($definition, 'handler', $type);
 }
 
 /**
@@ -91,6 +99,7 @@ function views_get_table_join($table, $base_table) {
 
     return $handler;
   }
+
   // DEBUG -- identify missing handlers
   vpr("Missing join: $table $base_table");
 }
@@ -123,6 +132,20 @@ function views_get_table_join($table, $base_table) {
  */
 class views_handler extends views_object {
   /**
+   * The top object of a view.
+   *
+   * @var view
+   */
+  var $view = NULL;
+
+  /**
+   * Where the $query object will reside:
+   *
+   * @var views_plugin_query
+   */
+  var $query = NULL;
+
+  /**
    * init the handler with necessary data.
    * @param $view
    *   The $view object this handler is attached to.
@@ -132,6 +155,36 @@ class views_handler extends views_object {
    */
   function init(&$view, &$options) {
     $this->view = &$view;
+    $display_id = $this->view->current_display;
+    // Check to see if this handler type is defaulted. Note that
+    // we have to do a lookup because the type is singular but the
+    // option is stored as the plural.
+
+    // If the 'moved to' keyword moved our handler, let's fix that now.
+    if (isset($this->actual_table)) {
+      $options['table'] = $this->actual_table;
+    }
+
+    if (isset($this->actual_field)) {
+      $options['field'] = $this->actual_field;
+    }
+
+    $types = views_object_types();
+    $plural = $this->handler_type;
+    if (isset($types[$this->handler_type]['plural'])) {
+      $plural = $types[$this->handler_type]['plural'];
+    }
+    if ($this->view->display_handler->is_defaulted($plural)) {
+      $display_id = 'default';
+    }
+
+    $this->localization_keys = array(
+      $display_id,
+      $this->handler_type,
+      $options['table'],
+      $options['field']
+    );
+
     $this->unpack_options($this->options, $options);
 
     // This exist on most handlers, but not all. So they are still optional.
@@ -201,6 +254,7 @@ class views_handler extends views_object {
 
     // If grouping, check to see if the aggregation method needs to modify the field.
     if ($this->view->display_handler->use_group_by()) {
+      $this->view->init_query();
       $info = $this->query->get_aggregation_info();
       if (!empty($info[$this->options['group_type']]['method']) && function_exists($info[$this->options['group_type']]['method'])) {
         return $info[$this->options['group_type']]['method']($this->options['group_type'], $field);
@@ -211,16 +265,59 @@ class views_handler extends views_object {
   }
 
   /**
+   * Sanitize the value for output.
+   *
+   * @param $value
+   *   The value being rendered.
+   * @param $type
+   *   The type of sanitization needed. If not provided, check_plain() is used.
+   */
+  function sanitize_value($value, $type = NULL) {
+    switch ($type) {
+      case 'xss':
+        $value = filter_xss($value);
+        break;
+      case 'url':
+        $value = check_url($value);
+        break;
+      default:
+        $value = check_plain($value);
+        break;
+    }
+    return $value;
+  }
+
+  /**
    * Validate the options form.
    */
   function options_validate(&$form, &$form_state) { }
 
+  /**
+   * Build the options form.
+   */
   function options_form(&$form, &$form_state) {
+    // Some form elements belong in a fieldset for presentation, but can't
+    // be moved into one because of the form_state['values'] hierarchy. Those
+    // elements can add a #fieldset => 'fieldset_name' property, and they'll
+    // be moved to their fieldset during pre_render.
+    $form['#pre_render'][] = 'views_ui_pre_render_add_fieldset_markup';
+
     $form['ui_name'] = array(
       '#type' => 'textfield',
-      '#title' => t('Administrative Title'),
+      '#title' => t('Administrative title'),
       '#description' => t('This title will be displayed on the views edit page instead of the default one. This might be useful if you have the same item twice.'),
       '#default_value' => $this->options['ui_name'],
+      '#fieldset' => 'more',
+    );
+
+    // This form is long and messy enough that the "Administrative title" option
+    // belongs in a "more options" fieldset at the bottom of the form.
+    $form['more'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('More'),
+      '#collapsible' => TRUE,
+      '#collapsed' => TRUE,
+      '#weight' => 150,
     );
   }
 
@@ -231,7 +328,13 @@ class views_handler extends views_object {
   function options_submit(&$form, &$form_state) { }
 
   /**
-   * Provide a form for groupby settings.
+   * Provides the handler some groupby.
+   */
+  function use_group_by() {
+    return TRUE;
+  }
+  /**
+   * Provide a form for aggregation settings.
    */
   function groupby_form(&$form, &$form_state) {
     $view = &$form_state['view'];
@@ -241,10 +344,11 @@ class views_handler extends views_object {
     $id = $form_state['id'];
 
     $form['#title'] = check_plain($view->display[$display_id]->display_title) . ': ';
-    $form['#title'] .= t('Configure group settings for @type %item', array('@type' => $types[$type]['lstitle'], '%item' => $this->ui_name()));
+    $form['#title'] .= t('Configure aggregation settings for @type %item', array('@type' => $types[$type]['lstitle'], '%item' => $this->ui_name()));
 
     $form['#section'] = $display_id . '-' . $type . '-' . $id;
 
+    $view->init_query();
     $info = $view->query->get_aggregation_info();
     foreach ($info as $id => $aggregate) {
       $group_types[$id] = $aggregate['title'];
@@ -252,9 +356,9 @@ class views_handler extends views_object {
 
     $form['group_type'] = array(
       '#type' => 'select',
-      '#title' => t('Group type'),
+      '#title' => t('Aggregation type'),
       '#default_value' => $this->options['group_type'],
-      '#description' => t('Select the grouping function to use on this field.'),
+      '#description' => t('Select the aggregation function to use on this field.'),
       '#options' => $group_types,
     );
   }
@@ -266,7 +370,7 @@ class views_handler extends views_object {
   function groupby_form_submit(&$form, &$form_state) {
     $item =& $form_state['handler']->options;
 
-    $item['group_type'] = $form_state['values']['group_type'];
+    $item['group_type'] = $form_state['values']['options']['group_type'];
   }
 
   /**
@@ -328,39 +432,9 @@ class views_handler extends views_object {
   function exposed_submit(&$form, &$form_state) { }
 
   /**
-   * Overridable form for exposed handler options.
-   *
-   * If overridden, it is best to call the parent or re-implement
-   * the stuff here.
-   *
-   * Many handlers will need to override this in order to provide options
-   * that are nicely tailored to the given filter.
+   * Form for exposed handler options.
    */
-  function expose_form(&$form, &$form_state) {
-    $form['expose']['start_left'] = array(
-      '#markup' => '<div class="views-left-50">',
-    );
-
-    $this->expose_form_left($form, $form_state);
-
-    $form['expose']['end_left'] = array(
-      '#markup' => '</div>',
-    );
-
-    $form['expose']['start_checkboxes'] = array(
-      '#markup' => '<div class="form-checkboxes views-left-40 clearfix">',
-    );
-
-    $this->expose_form_right($form, $form_state);
-
-    $form['expose']['end_checkboxes'] = array(
-      '#markup' => '</div>',
-    );
-  }
-
-  function expose_form_left(&$form, &$form_state) { }
-
-  function expose_form_right(&$form, &$form_state){ }
+  function expose_form(&$form, &$form_state) { }
 
   /**
    * Validate the options form.
@@ -373,34 +447,10 @@ class views_handler extends views_object {
    */
   function expose_submit($form, &$form_state) { }
 
-    /**
+  /**
    * Shortcut to display the expose/hide button.
    */
-  function show_expose_button(&$form, &$form_state) {
-    $form['expose_button'] = array(
-      '#prefix' => '<div class="views-expose clearfix">',
-      '#suffix' => '</div>',
-    );
-    if (empty($this->options['exposed'])) {
-      $form['expose_button']['button'] = array(
-        '#type' => 'submit',
-        '#value' => t('Expose'),
-        '#submit' => array('views_ui_config_item_form_expose'),
-      );
-      $form['expose_button']['markup'] = array(
-        '#markup' => '<div class="description">' . t('This item is currently not exposed. If you <strong>expose</strong> it, users will be able to change the filter as they view it.') . '</div>',
-      );
-    }
-    else {
-      $form['expose_button']['button'] = array(
-        '#type' => 'submit',
-        '#value' => t('Hide'),
-        '#submit' => array('views_ui_config_item_form_expose'),
-      );
-      $form['expose_button']['markup'] = array(
-        '#markup' => '<div class="description">' . t('This item is currently exposed. If you <strong>hide</strong> it, users will not be able to change the filter as they view it.') . '</div>',      );
-    }
-  }
+  function show_expose_button(&$form, &$form_state) { }
 
   /**
    * Shortcut to display the exposed options form.
@@ -410,10 +460,6 @@ class views_handler extends views_object {
       return;
     }
 
-    $form['expose'] = array(
-      '#prefix' => '<div class="views-expose-options clearfix">',
-      '#suffix' => '</div>',
-    );
     $this->expose_form($form, $form_state);
 
     // When we click the expose button, we add new gadgets to the form but they
@@ -452,6 +498,15 @@ class views_handler extends views_object {
    * been fully run.
    */
   function pre_query() { }
+
+  /**
+   * Run after the view is executed, before the result is cached.
+   *
+   * This gives all the handlers some time to modify values. This is primarily
+   * used so that handlers that pull up secondary data can put it in the
+   * $values so that the raw data can be utilized externally.
+   */
+  function post_execute(&$values) { }
 
   /**
    * Provides a unique placeholders for handlers.
@@ -496,7 +551,10 @@ class views_handler extends views_object {
    */
   function ensure_my_table() {
     if (!isset($this->table_alias)) {
-      if (!method_exists($this->query, 'ensure_table')) { vpr_trace(); exit; }
+      if (!method_exists($this->query, 'ensure_table')) {
+        vpr(t('Ensure my table called but query has no ensure_table method.'));
+        return;
+      }
       $this->table_alias = $this->query->ensure_table($this->table, $this->relationship);
     }
     return $this->table_alias;
@@ -596,7 +654,7 @@ class views_many_to_one_helper {
     $this->handler = &$handler;
   }
 
-  function option_definition(&$options) {
+  static function option_definition(&$options) {
     $options['reduce_duplicates'] = array('default' => FALSE);
   }
 
@@ -606,6 +664,7 @@ class views_many_to_one_helper {
       '#title' => t('Reduce duplicates'),
       '#description' => t('This filter can cause items that have more than one of the selected options to appear as duplicate results. If this filter causes duplicate results to occur, this checkbox can reduce those duplicates; however, the more terms it has to search for, the less performant the query will be, so use this with caution. Shouldn\'t be set on single-value fields, as it may cause values to disappear from display, if used on an incompatible field.'),
       '#default_value' => !empty($this->handler->options['reduce_duplicates']),
+      '#weight' => 4,
     );
   }
 
@@ -633,7 +692,7 @@ class views_many_to_one_helper {
    */
   function add_table($join = NULL, $alias = NULL) {
     // This is used for lookups in the many_to_one table.
-    $field = $this->handler->table . '.' . $this->handler->field;
+    $field = $this->handler->relationship . '_' . $this->handler->table . '.' . $this->handler->field;
 
     if (empty($join)) {
       $join = $this->get_join();
@@ -686,7 +745,7 @@ class views_many_to_one_helper {
    * it will cooperate with other arguments if possible.
    */
   function summary_join() {
-    $field = $this->handler->table . '.' . $this->handler->field;
+    $field = $this->handler->relationship . '_' . $this->handler->table . '.' . $this->handler->field;
     $join = $this->get_join();
 
     // shortcuts
@@ -724,8 +783,9 @@ class views_many_to_one_helper {
    */
   function ensure_my_table() {
     if (!isset($this->handler->table_alias)) {
-      // For 'or' if we're not reducing duplicates, we get the absolute simplest:
-      $field = $this->handler->table . '.' . $this->handler->field;
+      // Case 1: Operator is an 'or' and we're not reducing duplicates.
+      // We hence get the absolute simplest:
+      $field = $this->handler->relationship . '_' . $this->handler->table . '.' . $this->handler->field;
       if ($this->handler->operator == 'or' && empty($this->handler->options['reduce_duplicates'])) {
         if (empty($this->handler->options['add_table']) && empty($this->handler->view->many_to_one_tables[$field])) {
           // query optimization, INNER joins are slightly faster, so use them
@@ -757,8 +817,9 @@ class views_many_to_one_helper {
         return $this->handler->table_alias;
       }
 
+      // Case 2: it's an 'and' or an 'or'.
+      // We do one join per selected value.
       if ($this->handler->operator != 'not') {
-        // If it's an and or an or, we do one join per selected value.
         // Clone the join for each table:
         $this->handler->table_aliases = array();
         foreach ($this->handler->value as $value) {
@@ -790,9 +851,10 @@ class views_many_to_one_helper {
           }
         }
       }
+      // Case 3: it's a 'not'.
+      // We just do one join. We'll add a where clause during
+      // the query phase to ensure that $table.$field IS NULL.
       else {
-        // For not, we just do one join. We'll add a where clause during
-        // the query phase to ensure that $table.$field IS NULL.
         $join = $this->get_join();
         $join->type = 'LEFT';
         $join->extra = array();
@@ -829,10 +891,13 @@ class views_many_to_one_helper {
     $options = $this->handler->options;
     $operator = $this->handler->operator;
     $formula = !empty($this->formula);
+    $value = $this->handler->value;
     if (empty($options['group'])) {
       $options['group'] = 0;
     }
 
+    // add_condition determines whether a single expression is enough(FALSE) or the
+    // conditions should be added via an db_or()/db_and() (TRUE).
     $add_condition = TRUE;
     if ($operator == 'not') {
       $value = NULL;
@@ -840,39 +905,40 @@ class views_many_to_one_helper {
       $add_condition = FALSE;
     }
     elseif ($operator == 'or' && empty($options['reduce_duplicates'])) {
-      if (count($this->handler->value) > 1) {
-        $value = $this->handler->value;
+      if (count($value) > 1) {
         $operator = 'IN';
       }
       else {
-        $value = is_array($this->handler->value) ? array_pop($this->handler->value) : $this->handler->value;
+        $value = is_array($value) ? array_pop($value) : $value;
         $operator = '=';
       }
       $add_condition = FALSE;
     }
 
-    if ($formula) {
-      $placeholder = $this->placeholder();
-      if ($operator == 'IN') {
-        $operator = "$operator IN($placeholder)";
+    if (!$add_condition) {
+      if ($formula) {
+        $placeholder = $this->placeholder();
+        if ($operator == 'IN') {
+          $operator = "$operator IN($placeholder)";
+        }
+        else {
+          $operator = "$operator $placeholder";
+        }
+        $placeholders = array(
+          $placeholder => $value,
+        ) + $this->placeholders;
+        $this->handler->query->add_where_expression($options['group'], "$field $operator", $placeholders);
       }
       else {
-        $operator = "$operator $placeholder";
+        $this->handler->query->add_where($options['group'], $field, $value, $operator);
       }
-      $placeholders = array(
-        $placeholder => $value,
-      ) + $this->placeholders;
-      $this->handler->query->add_where_expression($options['group'], "$field $operator", $placeholders);
-    }
-    else {
-      $this->handler->query->add_where($options['group'], $field, $value, $operator);
     }
 
     if ($add_condition) {
       $field = $this->handler->real_field;
       $clause = $operator == 'or' ? db_or() : db_and();
       foreach ($this->handler->table_aliases as $value => $alias) {
-        $clause->condition("$alias.$field", $this->handler->value);
+        $clause->condition("$alias.$field", $value);
       }
 
       // implode on either AND or OR.
@@ -882,58 +948,113 @@ class views_many_to_one_helper {
 }
 
 /*
+ * Break x,y,z and x+y+z into an array. Works for strings.
+ *
+ * @param $str
+ *   The string to parse.
+ * @param $object
+ *   The object to use as a base. If not specified one will
+ *   be created.
+ *
+ * @return $object
+ *   An object containing
+ *   - operator: Either 'and' or 'or'
+ *   - value: An array of numeric values.
+ */
+function views_break_phrase_string($str, &$handler = NULL) {
+  if (!$handler) {
+    $handler = new stdClass();
+  }
+
+  // Set up defaults:
+  if (!isset($handler->value)) {
+    $handler->value = array();
+  }
+
+  if (!isset($handler->operator)) {
+    $handler->operator = 'or';
+  }
+
+  if ($str == '') {
+    return $handler;
+  }
+
+  if (preg_match('/^(\w+[+ ])+\w+$/', $str)) {
+    // The '+' character in a query string may be parsed as ' '.
+    $handler->operator = 'or';
+    $handler->value = preg_split('/[+ ]/', $str);
+  }
+  else if (preg_match('/^((\w|\s)+,)*(\w|\s)+$/', $str)) {
+    $handler->operator = 'and';
+    $handler->value = explode(',', $str);
+  }
+
+  // Keep an 'error' value if invalid strings were given.
+  if (!empty($str) && (empty($handler->value) || !is_array($handler->value))) {
+    $handler->value = array(-1);
+    return $handler;
+  }
+
+  // Doubly ensure that all values are strings only.
+  foreach ($handler->value as $id => $value) {
+    $handler->value[$id] = (string) $value;
+  }
+
+  return $handler;
+}
+/*
  * Break x,y,z and x+y+z into an array. Numeric only.
  *
  * @param $str
  *   The string to parse.
- * @param $filter
- *   The filter object to use as a base. If not specified one will
+ * @param $handler
+ *   The handler object to use as a base. If not specified one will
  *   be created.
  *
- * @return $filter
- *   The new filter object.
+ * @return $handler
+ *   The new handler object.
  */
-function views_break_phrase($str, $filter = NULL) {
-  if (!$filter) {
-    $filter = new stdClass();
+function views_break_phrase($str, &$handler = NULL) {
+  if (!$handler) {
+    $handler = new stdClass();
   }
 
   // Set up defaults:
 
-  if (!isset($filter->value)) {
-    $filter->value = array();
+  if (!isset($handler->value)) {
+    $handler->value = array();
   }
 
-  if (!isset($filter->operator)) {
-    $filter->operator = 'or';
+  if (!isset($handler->operator)) {
+    $handler->operator = 'or';
   }
 
   if (empty($str)) {
-    return $filter;
+    return $handler;
   }
 
   if (preg_match('/^([0-9]+[+ ])+[0-9]+$/', $str)) {
     // The '+' character in a query string may be parsed as ' '.
-    $filter->operator = 'or';
-    $filter->value = preg_split('/[+ ]/', $str);
+    $handler->operator = 'or';
+    $handler->value = preg_split('/[+ ]/', $str);
   }
   elseif (preg_match('/^([0-9]+,)*[0-9]+$/', $str)) {
-    $filter->operator = 'and';
-    $filter->value = explode(',', $str);
+    $handler->operator = 'and';
+    $handler->value = explode(',', $str);
   }
 
   // Keep an 'error' value if invalid strings were given.
-  if (!empty($str) && (empty($filter->value) || !is_array($filter->value))) {
-    $filter->value = array(-1);
-    return $filter;
+  if (!empty($str) && (empty($handler->value) || !is_array($handler->value))) {
+    $handler->value = array(-1);
+    return $handler;
   }
 
   // Doubly ensure that all values are numeric only.
-  foreach ($filter->value as $id => $value) {
-    $filter->value[$id] = intval($value);
+  foreach ($handler->value as $id => $value) {
+    $handler->value[$id] = intval($value);
   }
 
-  return $filter;
+  return $handler;
 }
 
 // --------------------------------------------------------------------------
@@ -988,11 +1109,9 @@ function views_date_sql_field($field, $field_type = 'int', $set_offset = NULL) {
   $db_type = db_driver();
   $offset = $set_offset !== NULL ? $set_offset : views_get_timezone();
   if (isset($offset) && !is_numeric($offset)) {
-    $tz = date_default_timezone_get();
-    $current = time('Z');
-    date_default_timezone_set($offset);
-    $offset_seconds = $current - time('Z');
-    date_default_timezone_set($tz);
+    $dtz = new DateTimeZone($offset);
+    $dt = new DateTime("now", $dtz);
+    $offset_seconds = $dtz->getOffset($dt);
   }
 
   switch ($db_type) {
@@ -1200,7 +1319,8 @@ function views_date_sql_extract($extract_type, $field, $field_type = 'int', $set
  *   - left_table: The table we join to
  *   - left_field: The field we join to
  *   - type: either LEFT (default) or INNER
- *   - extra: Either a string that's directly added, or an array of items:
+ *   - extra: An array of extra conditions on the join. Each condition is
+ *     either a string that's directly added, or an array of items:
  *   - - table: if not set, current table; if NULL, no table. This field can't
  *       be set in the cached definition because it can't know aliases; this field
  *       can only be used by realtime joins.
@@ -1290,6 +1410,113 @@ class views_join {
             $join_table = $info['table'] . '.';
           }
 
+          // Convert a single-valued array of values to the single-value case,
+          // and transform from IN() notation to = notation
+          if (is_array($info['value']) && count($info['value']) == 1) {
+            if (empty($info['operator'])) {
+              $operator = '=';
+            }
+            else {
+              $operator = $info['operator'] == 'NOT IN' ? '!=' : '=';
+            }
+            $info['value'] = array_shift($info['value']);
+          }
+
+          if (is_array($info['value'])) {
+            // With an array of values, we need multiple placeholders and the
+            // 'IN' operator is implicit.
+            foreach ($info['value'] as $value) {
+              $placeholder_i = ':views_join_condition_' . $select_query->nextPlaceholder();
+              $arguments[$placeholder_i] = $value;
+            }
+
+            $operator = !empty($info['operator']) ? $info['operator'] : 'IN';
+            $placeholder = '( ' . implode(', ', array_keys($arguments)) . ' )';
+          }
+          else {
+            // With a single value, the '=' operator is implicit.
+            $operator = !empty($info['operator']) ? $info['operator'] : '=';
+            $placeholder = ':views_join_condition_' . $select_query->nextPlaceholder();
+            $arguments[$placeholder] = $info['value'];
+          }
+
+          $extras[] = "$join_table$info[field] $operator $placeholder";
+        }
+
+        if ($extras) {
+          if (count($extras) == 1) {
+            $condition .= ' AND ' . array_shift($extras);
+          }
+          else {
+            $condition .= ' AND (' . implode(' ' . $this->extra_type . ' ', $extras) . ')';
+          }
+        }
+      }
+      elseif ($this->extra && is_string($this->extra)) {
+        $condition .= " AND ($this->extra)";
+      }
+    }
+
+    $select_query->addJoin($this->type, $right_table, $table['alias'], $condition, $arguments);
+  }
+}
+
+/**
+ * Join handler for relationships that join with a subquery as the left field.
+ * eg:
+ *  LEFT JOIN node node_term_data ON ([YOUR SUBQUERY HERE]) = node_term_data.nid 
+ *
+ * join definition
+ *   same as views_join class above, except:
+ *   - left_query: The subquery to use in the left side of the join clause.
+ */
+class views_join_subquery extends views_join {
+  function construct($table = NULL, $left_table = NULL, $left_field = NULL, $field = NULL, $extra = array(), $type = 'LEFT') {
+    parent::construct($table, $left_table, $left_field, $field, $extra, $type);
+    $this->left_query = $this->definition['left_query'];
+  }
+  
+  /**
+   * Build the SQL for the join this object represents.
+   *
+   * @param $select_query
+   *   An implementation of SelectQueryInterface.
+   * @param $table
+   *   The base table to join.
+   * @param $view_query
+   *   The source query, implementation of views_plugin_query.
+   * @return
+   *
+   */
+  function build_join($select_query, $table, $view_query) {
+    if (empty($this->definition['table formula'])) {
+      $right_table = "{" . $this->table . "}";
+    }
+    else {
+      $right_table = $this->definition['table formula'];
+    }
+
+    // Add our join condition, using a subquery on the left instead of a field.
+    $condition = "($this->left_query) = $table[alias].$this->field";
+    $arguments = array();
+
+    // Tack on the extra.
+    // This is just copied verbatim from the parent class, which itself has a bug: http://drupal.org/node/1118100
+    if (isset($this->extra)) {
+      if (is_array($this->extra)) {
+        $extras = array();
+        foreach ($this->extra as $info) {
+          $extra = '';
+          // Figure out the table name. Remember, only use aliases provided
+          // if at all possible.
+          $join_table = '';
+          if (!array_key_exists('table', $info)) {
+            $join_table = $table['alias'] . '.';
+          }
+          elseif (isset($info['table'])) {
+            $join_table = $info['table'] . '.';
+          }
+
           $placeholder = ':views_join_condition_' . $select_query->nextPlaceholder();
 
           if (is_array($info['value'])) {
@@ -1329,52 +1556,3 @@ class views_join {
 /**
  * @}
  */
-
-// Declare API compatibility on behalf of core modules:
-
-/**
- * Implements hook_views_api().
- *
- * This one is used as the base to reduce errors when updating.
- */
-function views_views_api() {
-  return array(
-    // in your modules do *not* use views_api_version()!!!
-    'api' => views_api_version(),
-    'path' => drupal_get_path('module', 'views') . '/modules',
-  );
-}
-
-function aggregator_views_api() { return views_views_api(); }
-
-function book_views_api() { return views_views_api(); }
-
-function comment_views_api() { return views_views_api(); }
-
-function locale_views_api() { return views_views_api(); }
-
-function field_views_api() { return views_views_api(); }
-
-function filter_views_api() { return views_views_api(); }
-
-function node_views_api() { return views_views_api(); }
-
-function poll_views_api() { return views_views_api(); }
-
-function profile_views_api() { return views_views_api(); }
-
-function search_views_api() { return views_views_api(); }
-
-function statistics_views_api() { return views_views_api(); }
-
-function system_views_api() { return views_views_api(); }
-
-function taxonomy_views_api() { return views_views_api(); }
-
-function translation_views_api() { return views_views_api(); }
-
-function upload_views_api() { return views_views_api(); }
-
-function user_views_api() { return views_views_api(); }
-
-function contact_views_api() { return views_views_api(); }

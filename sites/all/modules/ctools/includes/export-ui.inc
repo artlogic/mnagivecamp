@@ -165,6 +165,7 @@ function ctools_export_ui_process(&$plugin, $info) {
       'access callback' => 'ctools_export_ui_task_access',
       'access arguments' => array($plugin['name'], 'edit', $prefix_count + 2),
       'type' => MENU_DEFAULT_LOCAL_TASK,
+      'weight' => -10,
     ),
   );
 
@@ -350,6 +351,7 @@ function ctools_export_ui_process(&$plugin, $info) {
   $plugin['strings']['message'] += array(
     'enable' => t('@plugin %title was enabled.', array('@plugin' => $plugin['title singular proper'])),
     'disable' => t('@plugin %title was disabled.', array('@plugin' => $plugin['title singular proper'])),
+    'no items' => t('There are no @titles to display.', array('@titles' => $plugin['title plural'])),
   );
 }
 

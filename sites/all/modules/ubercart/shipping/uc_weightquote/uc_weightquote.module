@@ -51,7 +51,7 @@ function uc_weightquote_menu() {
 /**
  * Implements hook_form_alter().
  *
- * Add a form element for the shipping rate of a product.
+ * Adds a form element for the shipping rate of a product.
  */
 function uc_weightquote_form_alter(&$form, &$form_state, $form_id) {
   if (uc_product_is_product_form($form)) {
@@ -101,17 +101,17 @@ function uc_weightquote_node_insert($node) {
 function uc_weightquote_node_update($node) {
   if (uc_product_is_product($node->type)) {
     if (isset($node->weightquote) && is_array($node->weightquote)) {
-      if (!$node->revision) {
+      if (empty($node->revision)) {
         db_delete('uc_weightquote_products')
           ->condition('vid', $node->vid)
           ->execute();
       }
 
-      $query = db_insert('uc_weightquote-products')
+      $query = db_insert('uc_weightquote_products')
         ->fields(array('vid', 'nid', 'mid', 'rate'));
 
       foreach ($node->weightquote as $mid => $rate) {
-        if ($rate !== '') {
+        if (is_numeric($rate) && $rate >= 0) {
           $query->values(array(
               'vid' => $node->vid,
               'nid' => $node->nid,
@@ -214,9 +214,11 @@ function uc_weightquote_uc_shipping_method() {
  *   The order's products.
  * @param $details
  *   Other order details including a shipping address.
+ * @param $method
+ *   The shipping method to use to create the quote.
  *
  * @return
- *   A JSON object containing the shipping quote for the order.
+ *   An array containing the shipping quote for the order.
  */
 function uc_weightquote_quote($products, $details, $method) {
   $method = explode('_', $method['id']);

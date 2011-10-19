@@ -15,9 +15,9 @@
  *
  * @param $op
  *   The action being taken on the shipment. One of the following values:
- *   - "load": The shipment and its packages are loaded from the database.
- *   - "save": Changes to the shipment have been written.
- *   - "delete": The shipment has been deleted and the packages are available
+ *   - load: The shipment and its packages are loaded from the database.
+ *   - save: Changes to the shipment have been written.
+ *   - delete: The shipment has been deleted and the packages are available
  *     for reshipment.
  * @param &$shipment
  *   The shipment object.
@@ -36,7 +36,7 @@ function hook_uc_shipment($op, &$shipment) {
           if ($package->tracking_number) {
             $tracking_number = $package->tracking_number;
           }
-          else if ($shipment->tracking_number) {
+          elseif ($shipment->tracking_number) {
             $tracking_number = $shipment->tracking_number;
           }
           if ($tracking_number) {

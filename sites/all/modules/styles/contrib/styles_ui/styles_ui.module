@@ -58,7 +58,12 @@ function styles_ui_menu() {
         'page callback' => 'drupal_get_form',
         'page arguments' => array('styles_ui_style_edit_form', $field_type, $count),
         'access arguments' => $access,
-        'type' => MENU_CALLBACK,
+        'file' => 'styles_ui.admin.inc',
+      );
+      $items[$containers['admin']['path'] . '/delete/%'] = array(
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('styles_ui_delete_confirm', $field_type, $count),
+        'access arguments' => $access,
         'file' => 'styles_ui.admin.inc',
       );
     }

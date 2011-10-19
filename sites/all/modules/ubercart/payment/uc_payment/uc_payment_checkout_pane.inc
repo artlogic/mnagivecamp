@@ -11,19 +11,15 @@
 function uc_checkout_pane_payment($op, &$order, $form = NULL, &$form_state = NULL) {
   switch ($op) {
     case 'view':
-      if (empty($order->line_items)) {
-        $order->line_items = uc_order_load_line_items($order, FALSE);
-      }
+      $contents['#attached']['css'][] = drupal_get_path('module', 'uc_payment') . '/uc_payment.css';
+
+      $order->line_items = uc_order_load_line_items_display($order);
 
       if (variable_get('uc_payment_show_order_total_preview', TRUE)) {
-        $contents['current_total'] = array(
-          '#type' => 'hidden',
-          '#value' => isset($order->order_total) && $order->order_total > 0 ? $order->order_total : NULL,
-        );
         $contents['line_items'] = array(
           '#theme' => 'uc_payment_totals',
           '#order' => $order,
-          '#prefix' => '<div style="padding: .5em 1em; margin-bottom: 1em; border: dashed 1px #bbb;" id="line-items-div">',
+          '#prefix' => '<div id="line-items-div">',
           '#suffix' => '</div>',
           '#weight' => -20,
         );
@@ -33,9 +29,9 @@ function uc_checkout_pane_payment($op, &$order, $form = NULL, &$form_state = NUL
       $options = array();
       $default = NULL;
 
-      foreach ($methods as $method) {
-        if ($method['checkout']) {
-          $options[$method['id']] = $method['title'];
+      foreach ($methods as $id => $method) {
+        if ($method['checkout'] && !isset($method['express'])) {
+          $options[$id] = $method['title'];
         }
       }
 
@@ -60,6 +56,7 @@ function uc_checkout_pane_payment($op, &$order, $form = NULL, &$form_state = NUL
       $contents['payment_method'] = array(
         '#type' => 'radios',
         '#title' => t('Payment method'),
+        '#title_display' => 'invisible',
         '#options' => $options,
         '#default_value' => $default,
         '#disabled' => count($options) == 1 ? TRUE : FALSE,
@@ -67,21 +64,28 @@ function uc_checkout_pane_payment($op, &$order, $form = NULL, &$form_state = NUL
         '#theme' => 'uc_payment_method_select',
         '#ajax' => array(
           'callback' => 'uc_payment_checkout_payment_details',
-          'wrapper' => 'payment_details',
+          'wrapper' => 'payment-details',
+          'progress' => array(
+            'type' => 'throbber',
+          ),
         ),
       );
 
       $contents['details'] = array(
-        '#prefix' => '<div id="payment_details" class="solid-border">',
+        '#prefix' => '<div id="payment-details" class="clearfix payment-details-' . $default . '">',
         '#suffix' => '</div>',
       );
 
+      $details = FALSE;
       $func = _uc_payment_method_data($default, 'callback');
       if (function_exists($func)) {
         $details = $func('cart-details', $order, $form, $form_state);
-        if (is_array($details) && !empty($details)) {
-          $contents['details'] += $details;
-        }
+      }
+      if (is_array($details) && !empty($details)) {
+        $contents['details'] += $details;
+      }
+      else {
+        $contents['details']['#markup'] = t('Continue with checkout to complete payment.');
       }
 
       return array('description' => $description, 'contents' => $contents);
@@ -98,24 +102,7 @@ function uc_checkout_pane_payment($op, &$order, $form = NULL, &$form_state = NUL
       return TRUE;
 
     case 'review':
-      $line_items = $order->line_items;
-      $items = _uc_line_item_list();
-      foreach ($items as $item) {
-        if (isset($item['display_only']) && $item['display_only'] == TRUE) {
-          $result = $item['callback']('display', $order);
-          if (is_array($result)) {
-            foreach ($result as $line) {
-              $line_items[] = array(
-                'title' => $line['title'],
-                'amount' => $line['amount'],
-                'weight' => $item['weight']
-              );
-            }
-          }
-        }
-      }
-      usort($line_items, 'uc_weight_sort');
-
+      $line_items = uc_order_load_line_items_display($order);
       foreach ($line_items as $line_item) {
         $review[] = array('title' => $line_item['title'], 'data' => theme('uc_price', array('price' => $line_item['amount'])));
       }

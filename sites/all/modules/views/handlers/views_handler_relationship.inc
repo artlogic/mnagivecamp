@@ -1,5 +1,4 @@
 <?php
-// $Id: views_handler_relationship.inc,v 1.4.4.4 2010/12/17 21:42:19 merlinofchaos Exp $
 /**
  * @file
  * Views' relationship handlers.
@@ -76,15 +75,15 @@ class views_handler_relationship extends views_handler {
     parent::options_form($form, $form_state);
     $form['label'] = array(
       '#type' => 'textfield',
-      '#title' => t('Label'),
+      '#title' => t('Identifier'),
       '#default_value' => isset($this->options['label']) ? $this->options['label'] : '',
-      '#description' => t('The label for this relationship that will be displayed only administratively.'),
+      '#description' => t('Edit the administrative label displayed when referencing this relationship form filters, etc.'),
     );
 
     $form['required'] = array(
       '#type' => 'checkbox',
       '#title' => t('Require this relationship'),
-      '#description' => t('If required, items that do not contain this relationship will not appear.'),
+      '#description' => t('Enable to hide items that do not contain this relationship'),
       '#default_value' => !empty($this->options['required']),
     );
   }
@@ -116,6 +115,7 @@ class views_handler_relationship extends views_handler {
     }
 
     $join->definition = $def;
+    $join->options = $this->options;
     $join->construct();
     $join->adjusted = TRUE;
 
@@ -123,6 +123,13 @@ class views_handler_relationship extends views_handler {
     $alias = $def['table'] . '_' . $this->table;
 
     $this->alias = $this->query->add_relationship($alias, $join, $this->definition['base'], $this->relationship);
+  }
+
+  /**
+   * You can't groupby a relationship.
+   */
+  function use_group_by() {
+    return FALSE;
   }
 }
 

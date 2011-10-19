@@ -224,10 +224,11 @@ function uc_product_enable() {
   foreach ($types as $type) {
     if ($type->module == 'uc_product') {
       node_add_body_field($type, $body_label);
+      uc_product_set_teaser_display($type->type);
     }
   }
 
- uc_product_add_default_image_field();
+  uc_product_add_default_image_field();
 }
 
 /**
@@ -242,11 +243,6 @@ function uc_product_uninstall() {
 
   variable_del('uc_product_nodes_per_page');
   variable_del('uc_product_add_to_cart_qty');
-  variable_del('uc_product_add_to_cart_teaser');
-  variable_del('uc_teaser_add_to_cart_text');
-  variable_del('uc_product_add_to_cart_text');
-  variable_del('uc_product_field_enabled');
-  variable_del('uc_product_field_weight');
 }
 
 /**
@@ -341,4 +337,47 @@ function uc_product_update_7002() {
 
     return t('Enabled Image module.');
   }
+}
+
+/**
+ * Set default display settings for product teasers.
+ */
+function uc_product_update_7003() {
+  $types = db_query("SELECT pcid FROM {uc_product_classes}")->fetchCol();
+  array_unshift($types, 'product');
+  foreach ($types as $type) {
+    uc_product_set_teaser_display($type);
+  }
+
+  variable_del('uc_product_field_enabled');
+  variable_del('uc_product_field_weight');
+
+  return t('Set display settings for product teasers.');
+}
+
+/**
+ * Remove unused variables.
+ */
+function uc_product_update_7004() {
+  variable_del('uc_product_add_to_cart_teaser');
+  variable_del('uc_teaser_add_to_cart_text');
+  variable_del('uc_product_add_to_cart_text');
+}
+
+/**
+ * Sets default display settings for product teasers.
+ */
+function uc_product_set_teaser_display($type) {
+  $settings = field_bundle_settings('node', $type);
+  $settings['view_modes']['teaser']['custom_settings'] = TRUE;
+
+  $fields = array('model', 'list_price', 'cost', 'weight', 'dimensions');
+  foreach ($fields as $field) {
+    $settings['extra_fields']['display'][$field]['teaser'] = array(
+      'weight' => 0,
+      'visible' => FALSE,
+    );
+  }
+
+  field_bundle_settings('node', $type, $settings);
 }

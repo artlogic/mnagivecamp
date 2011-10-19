@@ -1,5 +1,4 @@
 <?php
-// $Id: views_plugin_style_summary_jump_menu.inc,v 1.1.6.6 2010/12/14 00:47:26 merlinofchaos Exp $
 /**
  * @file
  * Contains the default summary style plugin, which displays items in an HTML list.
@@ -25,9 +24,10 @@ class views_plugin_style_summary_jump_menu extends views_plugin_style {
   }
 
   function query() {
+    // Copy the offset option.
     $pager = array(
       'type' => 'none',
-      'options' => array(),
+      'options' => $this->display->handler->options['pager']['options'],
     );
     $this->display->handler->set_option('pager', $pager);
   }
@@ -52,7 +52,7 @@ class views_plugin_style_summary_jump_menu extends views_plugin_style {
 
     $form['hide'] = array(
       '#type' => 'checkbox',
-      '#title' => t('Hide the "Go" button.'),
+      '#title' => t('Hide the "Go" button'),
       '#default_value' => !empty($this->options['hide']),
       '#description' => t('If hidden, this button will only be hidden for users with javascript and the page will automatically jump when the select is changed.'),
     );
@@ -72,9 +72,9 @@ class views_plugin_style_summary_jump_menu extends views_plugin_style {
 
     $form['default_value'] = array(
       '#type' => 'checkbox',
-      '#title' => t('Select the current argument.'),
+      '#title' => t('Select the current contextual filter value'),
       '#default_value' => !empty($this->options['default_value']),
-      '#description' => t('If checked, the current argument setting will be displayed as the default option in the jump menu, if applicable.'),
+      '#description' => t('If checked, the current contextual filter value will be displayed as the default option in the jump menu, if applicable.'),
     );
   }
 
@@ -89,9 +89,15 @@ class views_plugin_style_summary_jump_menu extends views_plugin_style {
 
     $options = array();
     $default_value = '';
+    $row_args = array();
+    foreach ($this->view->result as $id => $row) {
+      $row_args[$id] = $argument->summary_argument($row);
+    }
+    $argument->process_summary_arguments($row_args);
+
     foreach ($this->view->result as $id => $row) {
       $args = $this->view->args;
-      $args[$argument->position] = $argument->summary_argument($row);
+      $args[$argument->position] = $row_args[$id];
       $base_path = NULL;
       if (!empty($argument->options['style_options']['base_path'])) {
         $base_path = $argument->options['style_options']['base_path'];
@@ -115,7 +121,8 @@ class views_plugin_style_summary_jump_menu extends views_plugin_style {
       'default_value' => $default_value,
     );
 
-    return drupal_get_form('ctools_jump_menu', $options, $settings);
+    $form = drupal_get_form('ctools_jump_menu', $options, $settings);
+    return drupal_render($form);
   }
 }
 

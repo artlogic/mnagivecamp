@@ -72,9 +72,11 @@ class MigrateSourceSQL extends MigrateSource {
    *
    * @param boolean $map_joinable
    *  Indicates whether the map table can be joined directly to the source query.
+   * @param boolean $cache_counts
+   *  Indicates whether to cache counts of source records.
    */
-  static public function options($map_joinable) {
-    return compact('map_joinable');
+  static public function options($map_joinable, $cache_counts) {
+    return compact('map_joinable', 'cache_counts');
   }
 
   /**
@@ -94,7 +96,7 @@ class MigrateSourceSQL extends MigrateSource {
    */
   public function __construct(SelectQuery $query, array $fields = array(),
        SelectQuery $count_query = NULL, array $options = array()) {
-    parent::__construct();
+    parent::__construct($options);
     $this->originalQuery = $query;
     $this->query = clone $query;
     $this->fields = $fields;
@@ -208,15 +210,8 @@ class MigrateSourceSQL extends MigrateSource {
 
   /**
    * Return a count of all available source records.
-   *
-   * @param boolean $refresh
-   *  If TRUE, or if there is no cached count, perform a SQL COUNT query to
-   *  retrieve and cache the number of rows in the query. Otherwise, return
-   *  the last cached value.
-   *
-   *  TODO: Implement caching
    */
-  public function count($refresh = FALSE) {
+  public function computeCount() {
     $count = $this->countQuery->execute()->fetchField();
     return $count;
   }
@@ -229,6 +224,7 @@ class MigrateSourceSQL extends MigrateSource {
     $this->result = NULL;
     $this->currentRow = NULL;
     $this->numProcessed = 0;
+    $this->numIgnored = 0;
     $this->highwaterSeen = FALSE;
     $this->query = clone $this->originalQuery;
 
@@ -258,6 +254,8 @@ class MigrateSourceSQL extends MigrateSource {
       // Only supp for single-field key
       $this->query->condition($keys[0], explode(',', $migration->getOption('idlist')), 'IN');
       $this->usingHighwater = FALSE;
+      // We won't join with the map, but we want to add its data to the row later
+      $this->mapJoinable = FALSE;
     }
     else {
       $highwaterField = $migration->getHighwaterField();
@@ -273,7 +271,7 @@ class MigrateSourceSQL extends MigrateSource {
         // marked with needs_update=1. Except with highwater marks, where we don't care
         // about the existence of map/message table entries, only needs_update.
         $first = TRUE;
-        $map_join = $msg_join = $map_condition = $msg_condition = '';
+        $map_join = $map_condition = '';
         $count = 1;
 
         foreach ($map->getSourceKey() as $field_name => $field_schema) {
@@ -287,23 +285,17 @@ class MigrateSourceSQL extends MigrateSource {
           else {
             $map_join .= ' AND ';
             if (!$this->usingHighwater) {
-              $msg_join .= ' AND ';
               $map_condition .= ' OR ';
-              $msg_condition .= ' OR ';
             }
           }
           $map_join .= "$field_name = map.$map_key";
           if (!$this->usingHighwater) {
-            $msg_join .= "$field_name = msg.$map_key";
             $map_condition .= "map.$map_key IS NULL";
-            $msg_condition .= "msg.$map_key IS NULL";
           }
         }
         $this->query->leftJoin($map->getMapTable(), 'map', $map_join);
         $map_condition .= ' OR map.needs_update = 1';
-        $this->query->leftJoin($map->getMessageTable(), 'msg', $msg_join);
         $this->query->where($map_condition);
-        $this->query->where($msg_condition);
 
         // And as long as we have the map table, get the destination ID, the
         // import hook will need it to identify the existing destination object.
@@ -314,8 +306,8 @@ class MigrateSourceSQL extends MigrateSource {
           $this->query->addField('map', $map_key, "migrate_map_$map_key");
         }
         $this->query->addField('map', 'needs_update');
-        if ($migration->getOption('itemlimit')) {
-          $this->query->range(0, $migration->getOption('itemlimit'));
+        if ($migration->getItemLimit()) {
+          $this->query->range(0, $migration->getItemLimit());
         }
       }
     }
@@ -338,7 +330,7 @@ class MigrateSourceSQL extends MigrateSource {
     $this->currentKey = NULL;
     // If we couldn't add the itemlimit to the query directly, enforce it here
     if (!$this->mapJoinable) {
-      $itemlimit = $migration->getOption('itemlimit');
+      $itemlimit = $migration->getItemLimit();
       if ($itemlimit && $this->numProcessed >= $itemlimit) {
         return;
       }
@@ -354,31 +346,38 @@ class MigrateSourceSQL extends MigrateSource {
 
       if (!$this->mapJoinable) {
         $map_row = $migration->getMap()->getRowBySource($this->currentKey);
-        if (!$map_row) {
-          // Unmigrated row, take it
-        }
-        elseif ($map_row && $map_row['needs_update'] == 1) {
-          // We always want to take this row if needs_update = 1
-        }
-        else {
-          if ($this->usingHighwater) {
-            if ($this->highwaterSeen) {
-              // We've passed the highwater mark previously, so no need to check again
-            }
-            else {
-              // With highwater, we want to take this row if it's above the highwater
-              // mark
-              $highwaterField = $migration->getHighwaterField();
-              $highwaterField = $highwaterField['name'];
-              if ($this->currentRow->$highwaterField <= $migration->getHighwater()) {
-                continue;
-              }
-            }
+        // If we're processing an idlist, we don't want to follow the logic for skipping
+        // rows, but we still want to add the map data to the row.
+        if (!$migration->getOption('idlist')) {
+          if (!$map_row) {
+            // Unmigrated row, take it
+          }
+          elseif ($map_row && $map_row['needs_update'] == 1) {
+            // We always want to take this row if needs_update = 1
           }
           else {
-            // With no highwater, we want to take this row if it's not in the map table
-            if ($map_row) {
-              continue;
+            if ($this->usingHighwater) {
+              if ($this->highwaterSeen) {
+                // We've passed the highwater mark previously, so no need to check again
+              }
+              else {
+                // With highwater, we want to take this row if it's above the highwater
+                // mark
+                $highwaterField = $migration->getHighwaterField();
+                $highwaterField = $highwaterField['name'];
+                if ($this->currentRow->$highwaterField <= $migration->getHighwater()) {
+                  continue;
+                }
+                else {
+                  $this->highwaterSeen = TRUE;
+                }
+              }
+            }
+            else {
+              // With no highwater, we want to take this row if it's not in the map table
+              if ($map_row) {
+                continue;
+              }
             }
           }
         }
@@ -391,7 +390,7 @@ class MigrateSourceSQL extends MigrateSource {
         }
       }
 
-      // Add some debugging, just for the first row.
+      // Add some debugging, just for the first row. Requires --debug.
       if (empty($this->numProcessed)) {
         $migration->showMessage(print_r($this->currentRow, TRUE), 'debug');
       }
@@ -407,6 +406,9 @@ class MigrateSourceSQL extends MigrateSource {
       if ($return !== FALSE) {
         $this->numProcessed++;
         break;
+      }
+      else {
+        $this->numIgnored++;
       }
     }
     if (!is_object($this->currentRow)) {

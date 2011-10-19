@@ -144,6 +144,9 @@ function uc_store_install() {
     )
   );
 
+  // Set the default store date format.
+  variable_set('date_format_uc_store', 'm/d/Y');
+
   // Install United States and Canada by default.
   $path = drupal_get_path('module', 'uc_store');
   require_once($path . '/countries/united_states_840_1.cif');
@@ -158,7 +161,6 @@ function uc_store_install() {
 function uc_store_uninstall() {
   db_delete('variable')
     ->condition(db_or()
-      ->condition('name', 'user_initials_%', 'LIKE')
       ->condition('name', 'uc_address_format_%', 'LIKE')
       ->condition('name', 'uc_currency_%', 'LIKE')
       ->condition('name', 'uc_store_%', 'LIKE')
@@ -170,7 +172,7 @@ function uc_store_uninstall() {
 
   variable_del('uc_customer_list_address');
   variable_del('uc_sign_after_amount');
-  variable_del('uc_date_format_default');
+  variable_del('date_format_uc_store');
   variable_del('uc_address_fields');
   variable_del('uc_address_fields_required');
   variable_del('uc_footer_message');
@@ -235,4 +237,33 @@ function uc_store_update_7004() {
       )
     )
   );
+}
+
+/**
+ * Change date formatting to use D7 API.
+ */
+function uc_store_update_7005() {
+  variable_set('date_format_uc_store', variable_get('uc_date_format_default', 'm/d/Y'));
+  variable_del('uc_date_format_default');
+}
+
+/**
+ * Delete user initials variables.
+ */
+function uc_store_update_7006() {
+  db_delete('variable')->condition('name', 'user_initials_%', 'LIKE')->execute();
+}
+
+/**
+ * Ensure Rules and Views are installed.
+ */
+function uc_store_update_7007() {
+  $modules = array('rules', 'views');
+  module_enable($modules);
+
+  foreach ($modules as $module) {
+    if (!module_exists($module)) {
+      throw new DrupalUpdateException(t('Rules and Views are now dependencies of Ubercart, but are not currently available. Please download them to sites/all/modules and run update.php again.'));
+    }
+  }
 }

@@ -186,6 +186,12 @@ class MigrateDestinationComment extends MigrateDestinationEntity {
       }
     }
 
+    if (isset($comment->cid) && $comment->cid) {
+      $updating = TRUE;
+    }
+    else {
+      $updating = FALSE;
+    }
     migrate_instrument_start('comment_save');
     comment_save($comment);
     migrate_instrument_stop('comment_save');
@@ -196,8 +202,18 @@ class MigrateDestinationComment extends MigrateDestinationEntity {
         ->execute();
     }
     $this->complete($comment, $row);
-    $return = (isset($comment->cid) && $comment->cid > 0)
-      ? array($comment->cid) : FALSE;
+    if (isset($comment->cid) && $comment->cid > 0) {
+      $return = array($comment->cid);
+      if ($updating) {
+        $this->numUpdated++;
+      }
+      else {
+        $this->numCreated++;
+      }
+    }
+    else {
+      $return = FALSE;
+    }
     return $return;
   }
 
@@ -224,9 +240,9 @@ class MigrateDestinationComment extends MigrateDestinationEntity {
       // two comments on the same node share same timestamp.
       $sql = "
         INSERT IGNORE INTO {node_comment_statistics} (nid, cid, last_comment_timestamp, last_comment_name, last_comment_uid, comment_count) (
-          SELECT c.nid, c.cid, c.created, c.name, c.uid, c2.comment_count FROM comment c
+          SELECT c.nid, c.cid, c.created, c.name, c.uid, c2.comment_count FROM {comment} c
           JOIN (
-            SELECT c.nid, MAX(c.created) AS created, COUNT(*) AS comment_count FROM comment c WHERE status=:published GROUP BY c.nid
+            SELECT c.nid, MAX(c.created) AS created, COUNT(*) AS comment_count FROM {comment} c WHERE status=:published GROUP BY c.nid
           ) AS c2 ON c.nid = c2.nid AND c.created=c2.created
         )";
       db_query($sql, array(':published' => COMMENT_PUBLISHED));

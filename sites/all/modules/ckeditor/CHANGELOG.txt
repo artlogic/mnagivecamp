@@ -1,4 +1,125 @@
 -----------------------------
+ 2011-08-29
+ Released CKEditor 7.x-1.3
+-----------------------------
+
+-- 2011-08-29
+- [#1260892] by dczepierga: Add regex to work with new CKEditor toolbar format (toolbar groups compatible with WAI-ARIA)
+- [#1258326] by dczepierga: Add configuration option for setting CKEditor plugins directory
+
+-- 2011-08-25
+- [#1257308] by dczepierga: Add loading sample toolbar to profile configuration
+- [#1192622] by dczepierga: Replace static paths to plugins in the database with dynamic paths
+
+-- 2011-08-16
+- [#1250496] by dczepierga: 'CKEDITOR' is not defined - problem with ckeditor.styles.js
+
+-- 2011-08-11
+- [#1231130] by dczepierga: The "Use theme style" setting now always uses the "seven" theme (admin menu theme)
+
+-- 2011-08-10
+- [#1245306] by dczepierga: "Custom JavaScript configuration" field description is wrong
+
+-- 2011-08-08
+- [#1231338] by dczepierga: Features module support for Drupal 7 (exporting profiles)
+
+-- 2011-08-02
+- [#1235142] by madmanmax: README.TXT - Installing CKFinder - wrong permission name
+
+-- 2011-07-12
+- [#1216104] by dczepierga: Bug in custom JavaScript configuration - semicolon problem
+- [#1215032] by dczepierga: Bad location of the configuration file in the description of CKEditor profile
+
+-- 2011-07-04
+- [#1190278] by dczepierga: CKEditor does not work with the Insert module
+
+-- 2011-06-28
+- [#1198068] by michal_cksource: Confusing behavior with IMCE button implementation
+
+-- 2011-06-27
+- [#1201180] by dczepierga: SCAYT spelling language does not match node language
+
+-- 2011-06-22
+- [#1196166] by dczepierga: Bug in custom JavaScript configuration - editor not showing in some cases
+
+-- 2011-06-17
+- [#1032120] by dczepierga: Formatting is lost when editing a node
+
+-- 2011-06-14
+- [#1187808] by RolandK: Not formatting text between code tags
+
+-- 2011-06-13
+- [#1186880] by dczepierga: Handling arrays in the "Custom JavaScript configuration"
+
+-- 2011-06-09
+- [#1183218] by neclimdul: Fix broken teasers for long paragraphs
+
+-- 2011-06-06
+- [#1179880] by dczepierga: Add hook to register a plugin
+- [#1063646] by dczepierga: Fix calling Undefined index: "loadPlugins" in ckeditor_admin_values_to_settings()
+
+-- 2011-06-02
+- [#1176212] by dczepierga: Remove not supported linktomenu and linktonode plugins
+- [#1176208] by dczepierga: Add plugins management in profile settings
+
+-----------------------------
+ 2011-05-30
+ Released CKEditor 7.x-1.2
+-----------------------------
+
+-- 2011-05-27
+- [#1170612] by dczepierga: Add support for autogrow and tableresize plugin 
+
+-- 2011-05-26
+- [#1169402] by dczepierga:  Fix duplicated path in the error message displayed when CKEditor is not installed correctly
+
+-- 2011-05-23
+- [#1165864] by dczepierga: Improve manual selection of the user interface color
+- [#1093038] by marhak: CKEDITOR is not defined when using ckeditor_basic.js - Editor is not loading
+- [#1039810] by cwc: Fix to predefined styles path errors (fix typo)
+- [#1164270] by TommyChris: Fix to work with ckeditor_link module (http://drupal.org/project/ckeditor_link)
+
+-- 2011-05-16
+- [#1158898] by dczepierga: Add Google PageSpeed and Drupal JS/CSS aggregation support
+
+-- 2011-05-09
+- [#1134252] by dczepierga: Add HTML Entities configurable option in each profile
+
+-- 2011-05-04
+- [#1022986] by dczepierga: Add integration with Media Module
+
+-- 2011-05-02
+- [#1142600] by taite11: Readme file edit - there is no core upload module in Drupal 7
+
+-- 2011-04-28
+- [#1022986] by dczepierga: Add integration with Media Module  (http://drupal.org/project/media)
+
+-- 2011-04-11
+- [#1116516] by weboide: Fix to CKEditor and Profile2 - remove call to undefined function ckeditor_user_customize_form_validate() on uid=1
+
+-- 2011-04-07
+- [#1093028] by marhak: Text written in rich text editor (WYSIWYG) mode disappears when switching to plain text editor mode
+- [#1102824] by dczepierga: CKEditor loses all text when uploading an image or file via field API
+
+-- 2011-03-31
+- [#1093038] by marhak: CKEDITOR is not defined when using ckeditor_basic.js - Editor is not loading
+
+-- 2011-03-30
+- [#1109366] by dczepierga: #1052604 Fix remove call to undefined function ckeditor_user_customize_form_validate
+
+-- 2011-03-29
+- [#1107882] by dczepierga: Add a warning message when the wysiwyg module is enabled in Drupal 7
+
+-- 2011-03-28
+- [#1107882] by dczepierga: Add a warning message when the wysiwyg module is enabled in Drupal 7
+
+-- 2011-03-23
+- [#1039810] by cwc: Fix to predefined styles path errors
+
+-- 2011-03-17
+- [#1095954] by dczepierga: Fix to prevent calling "Toggle rich text link" multiple times
+
+-----------------------------
  2011-03-10
  Released CKEditor 7.x-1.1
 -----------------------------

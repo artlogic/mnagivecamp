@@ -13,7 +13,7 @@
  */
 function uc_cart_cart_settings_form($form, &$form_state) {
   $form['cart-settings'] = array('#type' => 'vertical_tabs');
-  
+
   $form['general'] = array(
     '#type' => 'fieldset',
     '#title' => t('Basic settings'),
@@ -24,15 +24,36 @@ function uc_cart_cart_settings_form($form, &$form_state) {
       ),
     ),
   );
+
+  $panes = uc_cart_cart_pane_list(NULL);
+  $form['general']['panes'] = array(
+    '#theme' => 'uc_pane_sort_table',
+    '#pane_prefix' => 'uc_cap',
+    '#draggable' => 'uc-cart-pane-weight',
+  );
+  foreach ($panes as $id => $pane) {
+    $form['general']['panes'][$id]['uc_cap_' . $id . '_enabled'] = array(
+      '#type' => 'checkbox',
+      '#title' => $pane['title'],
+      '#default_value' => $pane['enabled'],
+    );
+    $form['general']['panes'][$id]['uc_cap_' . $id . '_weight'] = array(
+      '#type' => 'weight',
+      '#delta' => 10,
+      '#default_value' => $pane['weight'],
+      '#attributes' => array('class' => array('uc-cart-pane-weight')),
+    );
+  }
+
   $form['general']['uc_cart_add_item_msg'] = array(
     '#type' => 'checkbox',
-    '#title' => t('Display an update message when an item is added to the cart through an add to cart form.'),
+    '#title' => t('Display a message when a customer adds an item to their cart.'),
     '#default_value' => variable_get('uc_cart_add_item_msg', TRUE),
   );
   $form['general']['uc_add_item_redirect'] = array(
     '#type' => 'textfield',
     '#title' => t('Add to cart redirect'),
-    '#description' => t('Enter the Drupal page to redirect to when a customer adds an item to their cart.<br />Enter &lt;none&gt; for no redirect.'),
+    '#description' => t('Enter the page to redirect to when a customer adds an item to their cart, or &lt;none&gt; for no redirect.'),
     '#default_value' => variable_get('uc_add_item_redirect', 'cart'),
     '#size' => 32,
     '#field_prefix' => url(NULL, array('absolute' => TRUE)) . (variable_get('clean_url', 0) ? '' : '?q='),
@@ -41,7 +62,7 @@ function uc_cart_cart_settings_form($form, &$form_state) {
   $form['general']['uc_minimum_subtotal'] = array(
     '#type' => 'textfield',
     '#title' => t('Minimum order subtotal'),
-    '#description' => t('Optionally specify a minimum allowed subtotal for a cart to proceed to checkout.'),
+    '#description' => t('Customers will not be allowed to check out if the subtotal of items in their cart is less than this amount.'),
     '#default_value' => variable_get('uc_minimum_subtotal', 0),
     '#size' => 16,
     '#field_prefix' => variable_get('uc_sign_after_amount', FALSE) ? '' : variable_get('uc_currency_sign', '$'),
@@ -128,56 +149,54 @@ function uc_cart_cart_settings_form($form, &$form_state) {
   $form['continue_shopping'] = array(
     '#type' => 'fieldset',
     '#title' => t('Continue shopping element'),
-    '#description' => t('Ubercart will add a continue shopping to the cart page based on the settings below.'),
+    '#description' => t('These settings control the <em>continue shopping</em> option on the cart page.'),
     '#group' => 'cart-settings',
   );
   $form['continue_shopping']['uc_continue_shopping_type'] = array(
     '#type' => 'radios',
-    '#title' => t('Continue shopping element display'),
+    '#title' => t('<em>Continue shopping</em> element'),
     '#options' => array(
       'link' => t('Text link'),
       'button' => t('Button'),
-      'none' => t('None'),
+      'none' => t('Do not display'),
     ),
     '#default_value' => variable_get('uc_continue_shopping_type', 'link'),
   );
   $form['continue_shopping']['uc_continue_shopping_use_last_url'] = array(
     '#type' => 'checkbox',
-    '#title' => t('Make the continue shopping link send customers back to product pages after adding items to the cart.'),
-    '#description' => t('If this is disabled, the URL specified below will always be used.'),
+    '#title' => t('Make <em>continue shopping</em> go back to the last item that was added to the cart.'),
+    '#description' => t('If this is disabled or the item is unavailable, the URL specified below will be used.'),
     '#default_value' => variable_get('uc_continue_shopping_use_last_url', TRUE),
   );
   $form['continue_shopping']['uc_continue_shopping_url'] = array(
     '#type' => 'textfield',
-    '#title' => t('Default continue shopping link URL'),
-    '#description' => t('Enter the Drupal page for the link to continue shopping from the cart view page.'),
+    '#title' => t('Default <em>continue shopping</em> destination'),
     '#default_value' => variable_get('uc_continue_shopping_url', ''),
     '#size' => 32,
     '#field_prefix' => url(NULL, array('absolute' => TRUE)) . (variable_get('clean_url', 0) ? '' : '?q='),
   );
   $form['continue_shopping']['uc_continue_shopping_text'] = array(
     '#type' => 'textfield',
-    '#title' => t('Custom continue shopping link text'),
-    '#description' => t('Enter custom text for the continue shopping link.'),
+    '#title' => t('Custom <em>continue shopping</em> text'),
+    '#description' => t('Enter replacement text for the <em>continue shopping</em> element.'),
     '#default_value' => variable_get('uc_continue_shopping_text', ''),
   );
 
   $form['breadcrumb'] = array(
     '#type' => 'fieldset',
     '#title' => t('Cart breadcrumb'),
-    '#description' => t('Drupal automatically adds a Home breadcrumb to the cart page.  You can use these settings to specify a custom breadcrumb to use on the cart page instead.  If a custom text is not supplied, the default Home breadcrumb will be displayed.'),
+    '#description' => t('Drupal automatically adds a <em>Home</em> breadcrumb to the cart page, or you can use these settings to specify a custom breadcrumb.'),
     '#group' => 'cart-settings',
   );
   $form['breadcrumb']['uc_cart_breadcrumb_text'] = array(
     '#type' => 'textfield',
-    '#title' => t('Custom cart breadcrumb text'),
-    '#description' => t('Enter the text for the custom breadcrumb on the cart page.'),
+    '#title' => t('Cart page breadcrumb text'),
+    '#description' => t('Leave blank to use the default <em>Home</em> breadcrumb.'),
     '#default_value' => variable_get('uc_cart_breadcrumb_text', ''),
   );
   $form['breadcrumb']['uc_cart_breadcrumb_url'] = array(
     '#type' => 'textfield',
-    '#title' => t('Custom cart breadcrumb URL'),
-    '#description' => t('Enter the Drupal page linked to in the custom breadcrumb on the cart view page.'),
+    '#title' => t('Cart page breadcrumb destination'),
     '#default_value' => variable_get('uc_cart_breadcrumb_url', ''),
     '#size' => 32,
     '#field_prefix' => url(NULL, array('absolute' => TRUE)) . (variable_get('clean_url', 0) ? '' : '?q='),
@@ -195,47 +214,6 @@ function uc_cart_cart_settings_form_validate($form, &$form_state) {
   if (!is_numeric($form_state['values']['uc_minimum_subtotal']) || $form_state['values']['uc_minimum_subtotal'] < 0 || $form_state['values']['uc_minimum_subtotal'] === '-0') {
     form_set_error('uc_minimum_subtotal', t('Minimum order subtotal should be a non-negative number.'));
   }
-}
-
-/**
- * Settings for panes on the cart page.
- *
- * @ingroup forms
- */
-function uc_cart_cart_panes_form($form, &$form_state) {
-  $panes = uc_cart_cart_pane_list(NULL);
-
-  $form['panes'] = array(
-    '#theme' => 'uc_pane_sort_table',
-    '#pane_prefix' => 'uc_cap',
-  );
-  foreach ($panes as $pane) {
-    $form['panes'][$pane['id']]['uc_cap_' . $pane['id'] . '_enabled'] = array(
-      '#type' => 'checkbox',
-      '#default_value' => $pane['enabled'],
-    );
-    $form['panes'][$pane['id']]['title'] = array(
-      '#markup' => $pane['title'],
-    );
-    $form['panes'][$pane['id']]['uc_cap_' . $pane['id'] . '_weight'] = array(
-      '#type' => 'weight',
-      '#delta' => 10,
-      '#default_value' => $pane['weight'],
-    );
-  }
-
-  return system_settings_form($form);
-}
-
-/**
- * Displays an overview of the checkout settings.
- */
-function uc_cart_checkout_settings_overview() {
-  // Theme all the pages beneath this path into summary overviews.
-  return array(
-    '#theme' => 'uc_summary_overview',
-    '#summaries' => uc_summarize_child_form_pages('admin/store/settings/checkout/edit'),
-  );
 }
 
 /**
@@ -264,36 +242,103 @@ function uc_cart_checkout_settings_form($form, &$form_state) {
     '#description' => t('Disable this to use only third party checkout services, such as PayPal Express Checkout or Google Checkout.'),
     '#default_value' => variable_get('uc_checkout_enabled', TRUE),
   );
-  $form['checkout']['uc_checkout_anonymous'] = array(
+
+  $form['anonymous'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Anonymous checkout'),
+    '#group' => 'checkout-settings',
+  );
+  $form['anonymous']['uc_checkout_anonymous'] = array(
     '#type' => 'checkbox',
     '#title' => t('Enable anonymous checkout.'),
     '#description' => t('Disable this to force users to log in before the checkout page.'),
     '#default_value' => variable_get('uc_checkout_anonymous', TRUE),
-    '#states' => array(
-      'visible' => array(
-        'input[name="uc_checkout_enabled"]' => array('checked' => TRUE),
-      ),
-    ),
   );
+  $anon_state = array('visible' => array('input[name="uc_checkout_anonymous"]' => array('checked' => TRUE)));
+  $form['anonymous']['uc_cart_mail_existing'] = array(
+    '#type' => 'checkbox',
+    '#title' => t("Allow anonymous customers to use an existing account's email address."),
+    '#default_value' => variable_get('uc_cart_mail_existing', TRUE),
+    '#description' => t('If enabled, orders will be attached to the account matching the email address. If disabled, anonymous users using a registered email address must log in or use a different email address.'),
+    '#states' => $anon_state,
+  );
+  $form['anonymous']['uc_cart_email_validation'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Require e-mail confirmation for anonymous customers.'),
+    '#default_value' => variable_get('uc_cart_email_validation', FALSE),
+    '#states' => $anon_state,
+  );
+  $form['anonymous']['uc_cart_new_account_name'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Allow new customers to specify a username.'),
+    '#default_value' => variable_get('uc_cart_new_account_name', FALSE),
+    '#states' => $anon_state,
+  );
+  $form['anonymous']['uc_cart_new_account_password'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Allow new customers to specify a password.'),
+    '#default_value' => variable_get('uc_cart_new_account_password', FALSE),
+    '#states' => $anon_state,
+  );
+  $form['anonymous']['uc_new_customer_email'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Send new customers a separate e-mail with their account details.'),
+    '#default_value' => variable_get('uc_new_customer_email', TRUE),
+    '#states' => $anon_state,
+  );
+  $form['anonymous']['uc_new_customer_login'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Log in new customers after checkout.'),
+    '#default_value' => variable_get('uc_new_customer_login', FALSE),
+    '#states' => $anon_state,
+  );
+  $form['anonymous']['uc_new_customer_status_active'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Set new customer accounts to active.'),
+    '#description' => t('Uncheck to create new accounts but make them blocked.'),
+    '#default_value' => variable_get('uc_new_customer_status_active', TRUE),
+    '#states' => $anon_state,
+  );
+
+  $panes = _uc_checkout_pane_list();
+  $form['checkout']['panes'] = array(
+    '#theme' => 'uc_pane_sort_table',
+    '#pane_prefix' => 'uc_pane',
+    '#draggable' => 'uc-checkout-pane-weight',
+  );
+  foreach ($panes as $id => $pane) {
+    $form['checkout']['panes'][$id]['uc_pane_' . $id . '_enabled'] = array(
+      '#type' => 'checkbox',
+      '#title' => $pane['title'],
+      '#default_value' => variable_get('uc_pane_' . $id . '_enabled', $pane['enabled']),
+    );
+    $form['checkout']['panes'][$id]['uc_pane_' . $id . '_weight'] = array(
+      '#type' => 'weight',
+      '#default_value' => variable_get('uc_pane_' . $id . '_weight', $pane['weight']),
+      '#attributes' => array('class' => array('uc-checkout-pane-weight')),
+    );
+    $form['checkout']['panes'][$id]['#weight'] = variable_get('uc_pane_' . $id . '_weight', $pane['weight']);
+
+    $null = NULL;
+    $pane_settings = $pane['callback']('settings', $null, array());
+    if (is_array($pane_settings)) {
+      $form['pane_' . $id] = $pane_settings + array(
+        '#type' => 'fieldset',
+        '#title' => t('!pane pane', array('!pane' => $pane['title'])),
+        '#group' => 'checkout-settings',
+      );
+    }
+  }
+
   $form['checkout']['uc_cart_delivery_not_shippable'] = array(
     '#type' => 'checkbox',
     '#title' => t('Hide delivery information when carts have no shippable items.'),
     '#default_value' => variable_get('uc_cart_delivery_not_shippable', TRUE),
-    '#states' => array(
-      'visible' => array(
-        'input[name="uc_checkout_enabled"]' => array('checked' => TRUE),
-      ),
-    ),
   );
   $form['checkout']['uc_use_next_buttons'] = array(
     '#type' => 'checkbox',
     '#title' => t('Use collapsing checkout panes with <em>Next</em> buttons.'),
     '#default_value' => variable_get('uc_use_next_buttons', FALSE),
-    '#states' => array(
-      'visible' => array(
-        'input[name="uc_checkout_enabled"]' => array('checked' => TRUE),
-      ),
-    ),
   );
   $form['checkout']['uc_collapse_current_pane'] = array(
     '#type' => 'checkbox',
@@ -327,41 +372,18 @@ function uc_cart_checkout_settings_form($form, &$form_state) {
     '#rows' => 3,
   );
 
-  $form['completion'] = array(
+  $form['completion_messages'] = array(
     '#type' => 'fieldset',
-    '#title' => t('Completion settings'),
+    '#title' => t('Completion messages'),
     '#group' => 'checkout-settings',
   );
-  $form['completion']['uc_new_customer_email'] = array(
-    '#type' => 'checkbox',
-    '#title' => t('Send new customers a separate e-mail with their account details.'),
-    '#default_value' => variable_get('uc_new_customer_email', TRUE),
-  );
-  $form['completion']['uc_new_customer_login'] = array(
-    '#type' => 'checkbox',
-    '#title' => t('Login users when new customer accounts are created at checkout.'),
-    '#default_value' => variable_get('uc_new_customer_login', FALSE),
-  );
-  $form['completion']['uc_new_customer_status_active'] = array(
-    '#type' => 'checkbox',
-    '#title' => t('New customer accounts will be set to active.'),
-    '#description' => t('Uncheck to create new accounts but make them blocked.'),
-    '#default_value' => variable_get('uc_new_customer_status_active', TRUE),
-  );
-  $form['completion']['uc_cart_checkout_complete_page'] = array(
+  $form['completion_messages']['uc_cart_checkout_complete_page'] = array(
     '#type' => 'textfield',
     '#title' => t('Alternate checkout completion page'),
     '#description' => t('Leave blank to use the default completion page (recommended).'),
     '#default_value' => variable_get('uc_cart_checkout_complete_page', ''),
     '#field_prefix' => url(NULL, array('absolute' => TRUE)) . (variable_get('clean_url', 0) ? '' : '?q='),
     '#size' => 16,
-  );
-
-  $form['completion_messages'] = array(
-    '#type' => 'fieldset',
-    '#title' => t('Completion messages'),
-    '#description' => t('You may use <a href="!url">order, store, and site tokens</a> in these messages.', array('!url' => url('admin/store/help/tokens'))),
-    '#group' => 'checkout-settings',
   );
   $form['completion_messages']['uc_msg_order_submit'] = array(
     '#type' => 'textarea',
@@ -383,6 +405,7 @@ function uc_cart_checkout_settings_form($form, &$form_state) {
     '#description' => t("Message displayed upon checkout for a user who has an account but wasn't logged in."),
     '#default_value' => variable_get('uc_msg_order_existing_user', uc_get_message('completion_existing_user')),
     '#rows' => 3,
+    '#states' => $anon_state,
   );
   $form['completion_messages']['uc_msg_order_new_user'] = array(
     '#type' => 'textarea',
@@ -390,6 +413,15 @@ function uc_cart_checkout_settings_form($form, &$form_state) {
     '#description' => t("Message displayed upon checkout for a new user whose account was just created. You may use the special tokens !new_username for the username of a newly created account and !new_password for that account's password."),
     '#default_value' => variable_get('uc_msg_order_new_user', uc_get_message('completion_new_user')),
     '#rows' => 3,
+    '#states' => $anon_state,
+  );
+  $form['completion_messages']['uc_msg_order_new_user_logged_in'] = array(
+    '#type' => 'textarea',
+    '#title' => t('New logged in users'),
+    '#description' => t('Message displayed upon checkout for a new user whose account was just created and also <em>"Login users when new customer accounts are created at checkout."</em> is set on the <a href="!user_login_setting_ur">checkout settings</a>.', array('!user_login_setting_ur' => 'admin/store/settings/checkout')),
+    '#default_value' => variable_get('uc_msg_order_new_user_logged_in', uc_get_message('completion_new_user_logged_in')),
+    '#rows' => 3,
+    '#states' => $anon_state,
   );
   $form['completion_messages']['uc_msg_continue_shopping'] = array(
     '#type' => 'textarea',
@@ -399,45 +431,10 @@ function uc_cart_checkout_settings_form($form, &$form_state) {
     '#rows' => 3,
   );
 
-  return system_settings_form($form);
-}
-
-/**
- * Settings for panes on the checkout page.
- *
- * @ingroup forms
- */
-function uc_cart_checkout_panes_form($form, &$form_state) {
-  $panes = _uc_checkout_pane_list();
-
-  $form['panes'] = array(
-    '#theme' => 'uc_pane_sort_table',
-    '#pane_prefix' => 'uc_pane',
-  );
-  $form['pane-settings'] = array('#type' => 'vertical_tabs');
-  foreach ($panes as $pane) {
-    $form['panes'][$pane['id']]['uc_pane_' . $pane['id'] . '_enabled'] = array(
-      '#type' => 'checkbox',
-      '#default_value' => $pane['enabled'],
+  if (module_exists('token')) {
+    $form['completion_messages']['token_tree'] = array(
+      '#markup' => theme('token_tree', array('token_types' => array('uc_order', 'site', 'store'))),
     );
-    $form['panes'][$pane['id']]['title'] = array(
-      '#markup' => $pane['title'],
-    );
-    $form['panes'][$pane['id']]['uc_pane_' . $pane['id'] . '_weight'] = array(
-      '#type' => 'weight',
-      '#default_value' => $pane['weight'],
-    );
-
-    $null = NULL;
-    $pane_settings = $pane['callback']('settings', $null, array());
-    if (is_array($pane_settings)) {
-      $form['pane_' . $pane['id']] = array(
-        '#type' => 'fieldset',
-        '#title' => t('!pane settings', array('!pane' => $pane['title'])),
-        '#group' => 'pane-settings',
-      );
-      $form['pane_' . $pane['id']] = array_merge($form['pane_' . $pane['id']], $pane_settings);
-    }
   }
 
   return system_settings_form($form);

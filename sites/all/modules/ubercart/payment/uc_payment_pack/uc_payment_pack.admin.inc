@@ -3,23 +3,24 @@
 /**
  * @file
  * Payment pack administration menu items.
- *
  */
 
 /**
  * Receives a check for an order and put in a clear date.
+ *
+ * @see uc_payment_pack_receive_check_form_validate()
+ * @see uc_payment_pack_receive_check_form_submit()
+ * @ingroup forms
  */
 function uc_payment_pack_receive_check_form($form, &$form_state, $order) {
   $balance = uc_payment_balance($order);
-  $form['balance'] = array('#markup' => uc_currency_format($balance));
+  $form['balance'] = array(
+    '#prefix' => '<strong>' . t('Order balance:') . '</strong> ',
+    '#markup' => uc_currency_format($balance),
+  );
   $form['order_id'] = array(
     '#type' => 'hidden',
     '#value' => $order->order_id,
-  );
-  $form['check_exists'] = array(
-    '#type' => 'checkbox',
-    '#title' => t('Check has already cleared.'),
-    '#attributes' => array('onclick' => 'receive_check_toggle(this.checked);'),
   );
   $form['amount'] = array(
     '#type' => 'textfield',
@@ -58,27 +59,23 @@ function uc_payment_pack_receive_check_form($form, &$form_state, $order) {
 }
 
 /**
- * @ingroup themeable
+ * Form validation for uc_payment_pack_receive_check_form().
+ *
+ * @see uc_payment_pack_receive_check_form()
+ * @see uc_payment_pack_receive_check_form_submit()
  */
-function theme_uc_payment_pack_receive_check_form($variables) {
-  $form = $variables['form'];
-
-  drupal_add_js(drupal_get_path('module', 'uc_payment') . '/uc_payment.js');
-
-  $output = '<p>' . t('Use the form to enter the check into the payments system and set the expected clear date.') . '</p>';
-  $output .= '<p><strong>' . t('Order balance:') . '</strong> ' . drupal_render($form['balance']) . '</p>';
-
-  $output .= drupal_render_children($form);
-
-  return $output;
-}
-
 function uc_payment_pack_receive_check_form_validate($form, &$form_state) {
-  if (!$form_state['values']['check_exists'] && !is_numeric($form_state['values']['amount'])) {
+  if (!is_numeric($form_state['values']['amount'])) {
     form_set_error('amount', t('The amount must be a number.'));
   }
 }
 
+/**
+ * Submit handler for uc_payment_pack_receive_check_form().
+ *
+ * @see uc_payment_pack_receive_check_form()
+ * @see uc_payment_pack_receive_check_form_validate()
+ */
 function uc_payment_pack_receive_check_form_submit($form, &$form_state) {
   global $user;
 
@@ -91,7 +88,7 @@ function uc_payment_pack_receive_check_form_submit($form, &$form_state) {
     ))
     ->execute();
 
-  drupal_set_message(t('Check received, expected clear date of @date.', array('@date' => $form_state['values']['clear_month'] . '/' . $form_state['values']['clear_day'] . '/' . $form_state['values']['clear_year'])));
+  drupal_set_message(t('Check received, expected clear date of @date.', array('@date' => uc_date_format($form_state['values']['clear_month'], $form_state['values']['clear_day'], $form_state['values']['clear_year']))));
 
   $form_state['redirect'] = 'admin/store/orders/' . $form_state['values']['order_id'];
 }

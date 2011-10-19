@@ -91,7 +91,7 @@ abstract class Migration extends MigrationBase {
    *
    * @var int
    */
-  protected $rollbackBatchSize = 500;
+  protected $rollbackBatchSize = 50;
 
   /**
    * If present, an array with keys name and alias (optional). Name refers to
@@ -122,8 +122,8 @@ abstract class Migration extends MigrationBase {
   /**
    * General initialization of a Migration object.
    */
-  public function __construct() {
-    parent::__construct();
+  public function __construct($group = NULL) {
+    parent::__construct($group);
   }
 
   /**
@@ -205,6 +205,59 @@ abstract class Migration extends MigrationBase {
   }
 
   /**
+   * Shortcut for adding several fields which have the same name on both source
+   * and destination sides.
+   *
+   * @param array $fields
+   *  List of field names to map.
+   */
+  protected function addSimpleMappings(array $fields) {
+    foreach ($fields as $field) {
+      $this->addFieldMapping($field, $field);
+    }
+  }
+
+  /**
+   * Shortcut for adding several destination fields which are to be explicitly
+   * not migrated.
+   *
+   * @param array $fields
+   *  List of fields to mark as not for migration.
+   *
+   * @param string $issue_group
+   *  Issue group name to apply to the generated mappings (defaults to 'DNM').
+   */
+  protected function addUnmigratedDestinations(array $fields, $issue_group = NULL) {
+    if (!$issue_group) {
+      $issue_group = t('DNM');
+    }
+    foreach ($fields as $field) {
+      $this->addFieldMapping($field)
+           ->issueGroup($issue_group);
+    }
+  }
+
+  /**
+   * Shortcut for adding several source fields which are to be explicitly
+   * not migrated.
+   *
+   * @param array $fields
+   *  List of fields to mark as not for migration.
+   *
+   * @param string $issue_group
+   *  Issue group name to apply to the generated mappings (defaults to 'DNM').
+   */
+  protected function addUnmigratedSources(array $fields, $issue_group = NULL) {
+    if (!$issue_group) {
+      $issue_group = t('DNM');
+    }
+    foreach ($fields as $field) {
+      $this->addFieldMapping(NULL, $field)
+           ->issueGroup($issue_group);
+    }
+  }
+
+  /**
    * Reports whether this migration process is complete (i.e., all available
    * source rows have been processed).
    */
@@ -226,10 +279,16 @@ abstract class Migration extends MigrationBase {
     parent::beginProcess($newStatus);
 
     // Do some standard setup
-    if (isset($this->options['feedback']) && isset($this->options['feedback']['frequency']) &&
-        isset($this->options['feedback']['frequency_unit'])) {
-      $this->frequency = $this->options['feedback']['frequency'];
-      $this->frequency_unit = $this->options['feedback']['frequency_unit'];
+    if (isset($this->options['feedback']) && isset($this->options['feedback']['value']) &&
+        isset($this->options['feedback']['unit'])) {
+      $this->feedback = $this->options['feedback']['value'];
+      $this->feedback_unit = $this->options['feedback']['unit'];
+      if ($this->feedback_unit == 'item') {
+        $this->feedback_unit = 'items';
+      }
+      else if ($this->feedback_unit == 'second') {
+        $this->feedback_unit = 'seconds';
+      }
     }
     $this->lastfeedback = $this->starttime;
 
@@ -267,7 +326,7 @@ abstract class Migration extends MigrationBase {
    * call parent::preImport() etc.
    */
   protected function preImport() {
-    if (method_exists($this->destination, 'preRollback')) {
+    if (method_exists($this->destination, 'preImport')) {
       $this->destination->preImport();
     }
   }
@@ -295,7 +354,7 @@ abstract class Migration extends MigrationBase {
    */
   protected function rollback() {
     $return = MigrationBase::RESULT_COMPLETED;
-    $itemlimit = $this->getOption('itemlimit');
+    $itemlimit = $this->getItemLimit();
     $idlist = $this->getOption('idlist');
     if ($idlist) {
       // Make the IDs keys, to more easily identify them
@@ -308,6 +367,9 @@ abstract class Migration extends MigrationBase {
       $sourceids = array();
       $batch_count = 0;
       foreach ($this->map as $destination_key) {
+        if ($this->timeOptionExceeded()) {
+          break;
+        }
         if (($return = $this->checkStatus()) != MigrationBase::RESULT_COMPLETED) {
           break;
         }
@@ -343,17 +405,17 @@ abstract class Migration extends MigrationBase {
             $this->successes_since_feedback += $batch_count;
           }
           catch (Exception $e) {
-            $this->showMessage($e->getMessage());
+            $this->handleException($e, FALSE);
             migrate_instrument_stop('bulkRollback');
             migrate_instrument_stop('rollback map/message update');
           }
           $destids = array();
           $sourceids = array();
-          $batch_count = 0;
           // Will increment even if there was an exception... But we don't
           // really have a way to know how many really were successfully rolled back
           $this->total_processed += $batch_count;
           $this->processed_since_feedback += $batch_count;
+          $batch_count = 0;
         }
       }
       if ($batch_count > 0) {
@@ -373,6 +435,9 @@ abstract class Migration extends MigrationBase {
     }
     else {
       foreach ($this->map as $destination_key) {
+        if ($this->timeOptionExceeded()) {
+          break;
+        }
         if (($return = $this->checkStatus()) != MigrationBase::RESULT_COMPLETED) {
           break;
         }
@@ -429,19 +494,22 @@ abstract class Migration extends MigrationBase {
     $return = MigrationBase::RESULT_COMPLETED;
 
     foreach ($this->source as $data_row) {
+      if ($this->timeOptionExceeded()) {
+        break;
+      }
       if (($return = $this->checkStatus()) != MigrationBase::RESULT_COMPLETED) {
         break;
       }
 
       $this->currentSourceKey = $this->source->getCurrentKey();
 
+      // Wipe old messages
+      $this->map->delete($this->currentSourceKey, TRUE);
+
       $this->sourceValues = $data_row;
       $this->applyMappings();
 
       try {
-        // Wipe old messages
-        $this->map->delete($this->currentSourceKey, TRUE);
-
         migrate_instrument_start('destination import', TRUE);
         $ids = $this->destination->import($this->destinationValues, $this->sourceValues);
         migrate_instrument_stop('destination import');
@@ -461,8 +529,7 @@ abstract class Migration extends MigrationBase {
         $this->showMessage($e->getMessage());
       }
       catch (Exception $e) {
-        $this->saveMessage($e->getMessage());
-        $this->showMessage($e->getMessage());
+        $this->handleException($e);
       }
       $this->total_processed++;
       $this->processed_since_feedback++;
@@ -546,22 +613,6 @@ abstract class Migration extends MigrationBase {
    *  Status of the process, represented by one of the Migration::RESULT_* constants.
    */
   protected function progressMessage($result) {
-    // In the INCOMPLETE (feedback) case, only proceed under the proper conditions
-    if ($result == Migration::RESULT_INCOMPLETE) {
-      if (isset($this->frequency)) {
-        if (($this->frequency_unit == 'seconds' && time()-$this->lastfeedback >= $this->frequency) ||
-            ($this->frequency_unit == 'items' && $this->processed_since_feedback >= $this->frequency)) {
-          // Fall through
-        }
-        else {
-          return;
-        }
-      }
-      else {
-        return;
-      }
-    }
-
     $time = microtime(TRUE) - $this->lastfeedback;
     if ($time > 0) {
       $perminute = round(60*$this->processed_since_feedback/$time);
@@ -574,19 +625,19 @@ abstract class Migration extends MigrationBase {
     if ($this->status == Migration::STATUS_IMPORTING) {
       switch ($result) {
         case Migration::RESULT_COMPLETED:
-          $basetext = "Imported !successes (!failed failed) in !time sec (!perminute/min) - done with '!name'";
+          $basetext = "Processed !numitems (!created created, !updated updated, !failed failed, !ignored ignored) in !time sec (!perminute/min) - done with '!name'";
           $type = 'completed';
           break;
         case Migration::RESULT_FAILED:
-          $basetext = "Imported !successes (!failed failed) in !time sec (!perminute/min) - failure with '!name'";
+          $basetext = "Processed !numitems (!created created, !updated updated, !failed failed, !ignored ignored) in !time sec (!perminute/min) - failure with '!name'";
           $type = 'failed';
           break;
         case Migration::RESULT_INCOMPLETE:
-          $basetext = "Imported !successes (!failed failed) in !time sec (!perminute/min) - continuing with '!name'";
+          $basetext = "Processed !numitems (!created created, !updated updated, !failed failed, !ignored ignored) in !time sec (!perminute/min) - continuing with '!name'";
           $type = 'ok';
           break;
         case Migration::RESULT_STOPPED:
-          $basetext = "Imported !successes (!failed failed) in !time sec (!perminute/min) - stopped '!name'";
+          $basetext = "Processed !numitems (!created created, !updated updated, !failed failed, !ignored ignored) in !time sec (!perminute/min) - stopped '!name'";
           $type = 'warning';
           break;
       }
@@ -611,10 +662,14 @@ abstract class Migration extends MigrationBase {
           break;
       }
     }
+    $numitems = $this->processed_since_feedback + $this->source->getIgnored();
     $message = t($basetext,
-        array('!numitems' => $this->processed_since_feedback,
+        array('!numitems' => $numitems,
               '!successes' => $this->successes_since_feedback,
               '!failed' => $this->processed_since_feedback - $this->successes_since_feedback,
+              '!created' => $this->destination->getCreated(),
+              '!updated' => $this->destination->getUpdated(),
+              '!ignored' => $this->source->getIgnored(),
               '!time' => $time,
               '!perminute' => $perminute,
               '!name' => $this->machineName));
@@ -640,6 +695,8 @@ abstract class Migration extends MigrationBase {
     if ($result == Migration::RESULT_INCOMPLETE) {
       $this->lastfeedback = time();
       $this->processed_since_feedback = $this->successes_since_feedback = 0;
+      $this->source->resetStats();
+      $this->destination->resetStats();
     }
   }
 
@@ -657,7 +714,14 @@ abstract class Migration extends MigrationBase {
     if ($this->getStatus() == Migration::STATUS_STOPPING) {
       return MigrationBase::RESULT_STOPPED;
     }
-    $this->progressMessage(MigrationBase::RESULT_INCOMPLETE);
+    // If feedback is requested, produce a progress message at the proper time
+    if (isset($this->feedback)) {
+      if (($this->feedback_unit == 'seconds' && time() - $this->lastfeedback >= $this->feedback) ||
+          ($this->feedback_unit == 'items' && $this->processed_since_feedback >= $this->feedback)) {
+        $this->progressMessage(MigrationBase::RESULT_INCOMPLETE);
+      }
+    }
+
     return MigrationBase::RESULT_COMPLETED;
   }
 
@@ -698,6 +762,14 @@ abstract class Migration extends MigrationBase {
           $this->destinationValues->$destination = $this->handleSourceMigration($source_migration, $this->destinationValues->$destination, $default, $this);
         }
 
+        // Call any designated callbacks
+        $callbacks = $mapping->getCallbacks();
+        foreach ($callbacks as $callback) {
+          if (property_exists($this->destinationValues, $destination)) {
+            $this->destinationValues->$destination = call_user_func($callback, $this->destinationValues->$destination);
+          }
+        }
+
         // If specified, assure a unique value for this property.
         $dedupe = $mapping->getDedupe();
         if ($dedupe && isset($this->destinationValues->$destination)) {
@@ -716,7 +788,7 @@ abstract class Migration extends MigrationBase {
             // handlers?
             $this->destinationValues->{$destination}['arguments'] = array();
             foreach ($arguments as $argname => $destarg) {
-              if (is_array($destarg) && isset($destarg['source_field']) && isset($this->sourceValues->$destarg['source_field'])) {
+              if (is_array($destarg) && isset($destarg['source_field']) && property_exists($this->sourceValues, $destarg['source_field'])) {
                 $this->destinationValues->{$destination}['arguments'][$argname] = $this->sourceValues->$destarg['source_field'];
               }
               elseif (is_array($destarg) && isset($destarg['default_value'])) {
@@ -744,17 +816,43 @@ abstract class Migration extends MigrationBase {
    *
    * @param mixed $source_migrations
    *   An array of source migrations, or string for a single migration.
-   * @param mixed $source_values
-   *   An array of source values, or string for a single value.
+   * @param mixed $source_keys
+   *   Key(s) to be looked up against the source migration(s). This may be a simple
+   *   value (one single-field key), an array of values (multiple single-field keys
+   *   to each be looked up), or an array of arrays (multiple multi-field keys to
+   *   each be looked up).
    * @param mixed $default
    *   The default value, if no ID was found.
    * @param $migration
    *   The implementing migration.
+   * @return
+   *   Destination value(s) from the source migration(s), as a single value if
+   *   a single key was passed in, or an array of values if there were multiple
+   *   keys to look up.
    */
-  protected function handleSourceMigration($source_migrations, $source_values, $default = NULL, $migration) {
-    // Ensure source migrations and source keys are arrays.
+  protected function handleSourceMigration($source_migrations, $source_keys, $default = NULL, $migration = NULL) {
+    // Handle the source migration(s) as an array.
     $source_migrations = (array) $source_migrations;
-    $source_keys = (array) $source_values;
+
+    // We want to treat source keys consistently as an array of arrays (each
+    // representing one key).
+    if (is_array($source_keys)) {
+      if (is_array(reset($source_keys))) {
+        // Already an array of key arrays, fall through
+      }
+      else {
+        // An array of single-key values - make each one an array
+        $new_source_keys = array();
+        foreach ($source_keys as $source_key) {
+          $new_source_keys[] = array($source_key);
+        }
+        $source_keys = $new_source_keys;
+      }
+    }
+    else {
+      // A simple value - make it an array within an array
+      $source_keys = array(array($source_keys));
+    }
 
     // Instantiate each migration, and store back in the array.
     foreach ($source_migrations as $key => $source_migration) {
@@ -762,14 +860,15 @@ abstract class Migration extends MigrationBase {
     }
 
     $results = array();
+    // Each $source_key will be an array of key values
     foreach ($source_keys as $source_key) {
-      if (is_null($source_key)) {
+      if (empty($source_key)) {
         continue;
       }
       // Loop through each source migration, checking for an existing dest ID.
       foreach ($source_migrations as $source_migration) {
         // Break out of the loop as soon as a destination ID is found.
-        if ($destids = $source_migration->getMap()->lookupDestinationID(array($source_key), $this)) {
+        if ($destids = $source_migration->getMap()->lookupDestinationID($source_key)) {
           break;
         }
       }
@@ -778,7 +877,7 @@ abstract class Migration extends MigrationBase {
       if (!$destids) {
         foreach ($source_migrations as $source_migration) {
           // Break out of the loop if a stub was successfully created.
-          if ($destids = $source_migration->createStubWrapper(array($source_key), $migration)) {
+          if ($destids = $source_migration->createStubWrapper($source_key, $migration)) {
             break;
           }
         }
@@ -798,11 +897,12 @@ abstract class Migration extends MigrationBase {
         $results[] = $default;
       }
     }
-    if (is_array($source_values) || count($results) > 1) {
+    // Return a single result if we had a single key
+    if (count($source_keys) > 1) {
       return $results;
     }
     else {
-      return $results[0];
+      return reset($results);
     }
   }
 
@@ -837,7 +937,7 @@ abstract class Migration extends MigrationBase {
   /**
    * If stub creation is enabled, try to create a stub and save the mapping.
    */
-  protected function createStubWrapper(array $source_key, $migration) {
+  protected function createStubWrapper(array $source_key, $migration = NULL) {
     if (method_exists($this, 'createStub')) {
       $destids = $this->createStub($migration);
       if ($destids) {

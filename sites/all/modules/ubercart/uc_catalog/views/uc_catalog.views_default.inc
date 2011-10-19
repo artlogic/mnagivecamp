@@ -14,7 +14,7 @@ function uc_catalog_views_default_views() {
   $view->description = t('Catalog');
   $view->tag = '';
   $view->base_table = 'node';
-  $view->api_version = '3.0-alpha1';
+  $view->api_version = 3;
   $view->disabled = FALSE; /* Edit this to true to make a default view disabled initially */
 
   /* Display: Defaults */
@@ -71,7 +71,7 @@ function uc_catalog_views_default_views() {
   $handler->display->display_options['fields']['entity_id']['id'] = 'entity_id';
   $handler->display->display_options['fields']['entity_id']['table'] = 'field_data_uc_product_image';
   $handler->display->display_options['fields']['entity_id']['field'] = 'entity_id';
-  $handler->display->display_options['fields']['entity_id']['label'] = 'Image';
+  $handler->display->display_options['fields']['entity_id']['label'] = '';
   $handler->display->display_options['fields']['entity_id']['alter']['alter_text'] = 0;
   $handler->display->display_options['fields']['entity_id']['alter']['make_link'] = 0;
   $handler->display->display_options['fields']['entity_id']['alter']['absolute'] = 0;
@@ -138,6 +138,7 @@ function uc_catalog_views_default_views() {
   $handler->display->display_options['fields']['sell_price']['id'] = 'sell_price';
   $handler->display->display_options['fields']['sell_price']['table'] = 'uc_products';
   $handler->display->display_options['fields']['sell_price']['field'] = 'sell_price';
+  $handler->display->display_options['fields']['sell_price']['label'] = 'Price';
   $handler->display->display_options['fields']['sell_price']['alter']['alter_text'] = 0;
   $handler->display->display_options['fields']['sell_price']['alter']['make_link'] = 0;
   $handler->display->display_options['fields']['sell_price']['alter']['absolute'] = 0;
@@ -203,7 +204,7 @@ function uc_catalog_views_default_views() {
   $view->tag = '';
   $view->base_table = 'taxonomy_term_data';
   $view->human_name = '';
-  $view->api_version = '3.0-alpha1';
+  $view->api_version = 3;
   $view->disabled = FALSE; /* Edit this to true to make a default view disabled initially */
 
   /* Display: Defaults */

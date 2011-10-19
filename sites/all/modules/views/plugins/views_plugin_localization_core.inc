@@ -1,5 +1,4 @@
 <?php
-// $Id: views_plugin_localization_core.inc,v 1.1.4.2 2010/12/01 20:05:06 dereine Exp $
 
 /**
  * @file
@@ -21,9 +20,11 @@ class views_plugin_localization_core extends views_plugin_localization {
    * @param $keys
    *   An array of keys to identify the string. Generally constructed from
    *   view name, display_id, and a property, e.g., 'header'.
+   * @param $format
+   *   The input format of the string. This is optional.
    */
-  function translate_string($string, $keys = array()) {
-    return t($string); 
+  function translate_string($string, $keys = array(), $format = '') {
+    return t($string);
   }
 
   /**
@@ -34,8 +35,10 @@ class views_plugin_localization_core extends views_plugin_localization {
    * @param $keys
    *   An array of keys to identify the string. Generally constructed from
    *   view name, display_id, and a property, e.g., 'header'.
+   * @param $format
+   *   The input format of the string. This is optional.
    */
-  function save_string($string, $keys = array()) {
+  function save_string($string, $keys = array(), $format = '') {
     global $language;
 
     // If the current language is 'en', we need to reset the language
@@ -46,7 +49,9 @@ class views_plugin_localization_core extends views_plugin_localization {
       $languages = language_list();
       $cached_language = $language;
       unset($languages['en']);
-      $language = current($languages);
+      if (!empty($languages)) {
+        $language = current($languages);
+      }
     }
 
     t($string);

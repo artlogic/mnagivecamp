@@ -83,6 +83,28 @@ function migrate_migrations() {
       }
     }
   }
+
+  // The migrations are now ordered according to their own dependencies - now order
+  // them by group
+  $groups = MigrateGroup::groups();
+  // Seed the final list by properly-ordered groups.
+  $final_migrations = array();
+  foreach ($groups as $name => $group) {
+    $final_migrations[$name] = array();
+  }
+
+  // Fill in the grouped list
+  foreach ($migrations as $machine_name => $migration) {
+    $final_migrations[$migration->getGroup()->getName()][$machine_name] = $migration;
+  }
+  // Then flatten the list
+  $migrations = array();
+  foreach ($final_migrations as $group_name => $group_migrations) {
+    foreach ($group_migrations as $machine_name => $migration) {
+      $migrations[$machine_name] = $migration;
+    }
+  }
+
   return $migrations;
 }
 
@@ -155,13 +177,15 @@ function migrate_handler_invoke_all($destination, $method) {
   array_shift($args);
   $return = array();
   $class_list = _migrate_class_list('MigrateDestinationHandler');
+  $disabled = unserialize(variable_get('migrate_disabled_handlers', serialize(array())));
   foreach ($class_list as $class_name => $handler) {
-    if ($handler->handlesType($destination) && method_exists($handler, $method)) {
+    if (!in_array($class_name, $disabled) && $handler->handlesType($destination)
+        && method_exists($handler, $method)) {
       migrate_instrument_start($class_name . '->' . $method);
       $result = call_user_func_array(array($handler, $method), $args);
       migrate_instrument_stop($class_name . '->' . $method);
       if (isset($result) && is_array($result)) {
-        $return = array_merge_recursive($return, $result);
+        $return = array_merge($return, $result);
       }
       elseif (isset($result)) {
         $return[] = $result;
@@ -185,18 +209,22 @@ function migrate_handler_invoke_all($destination, $method) {
  * @param $values
  *  Array of incoming values, to be transformed into the appropriate structure
  *  for the field type.
+ * @param $method
+ *  Handler method to call (defaults to prepare()).
  */
-function migrate_field_handler_invoke_all(stdClass $entity, array $field_info, array $instance,
-    array $values) {
+function migrate_field_handler_invoke_all($entity, array $field_info, array $instance,
+    array $values, $method = 'prepare') {
   $return = array();
   $type = $field_info['type'];
   $class_list = _migrate_class_list('MigrateFieldHandler');
+  $disabled = unserialize(variable_get('migrate_disabled_handlers', serialize(array())));
   foreach ($class_list as $class_name => $handler) {
-    if ($handler->handlesType($type) && method_exists($handler, 'prepare')) {
-      migrate_instrument_start($class_name . '->prepare');
-      $result = call_user_func_array(array($handler, 'prepare'),
+    if (!in_array($class_name, $disabled) && $handler->handlesType($type)
+        && method_exists($handler, $method)) {
+      migrate_instrument_start($class_name . '->' . $method);
+      $result = call_user_func_array(array($handler, $method),
         array($entity, $field_info, $instance, $values));
-      migrate_instrument_stop($class_name . '->prepare');
+      migrate_instrument_stop($class_name . '->' . $method);
       if (isset($result) && is_array($result)) {
         $return = array_merge_recursive($return, $result);
       }
@@ -315,6 +343,16 @@ function _migrate_class_list($parent_class, array $existing = array()) {
   return $class_lists[$parent_class];
 }
 
+/**
+ * Implementation of hook_hook_info().
+ */
+function migrate_hook_info() {
+  $hooks['migrate_api'] = array(
+    'group' => 'migrate',
+  );
+  return $hooks;
+}
+
 /*
  * Implementation of hook_migrate_api().
  */
@@ -360,37 +398,30 @@ function migrate_get_module_apis($reset = FALSE) {
  * @param array $log_entry
  */
 function migrate_watchdog($log_entry) {
-  // Validate that Migration is registered (if we get called due to an error
-  // during the registry build, we're screwed)
-  $name = db_select('registry', 'r')
-          ->fields('r', array('name'))
-          ->condition('name', 'Migration')
-          ->condition('type', 'class')
-          ->execute()
-          ->fetchField();
-  if ($name) {
-    if ($migration = Migration::currentMigration()) {
-      switch ($log_entry['severity']) {
-        case WATCHDOG_EMERGENCY:
-        case WATCHDOG_ALERT:
-        case WATCHDOG_CRITICAL:
-        case WATCHDOG_ERROR:
-          $severity = MigrationBase::MESSAGE_ERROR;
-          break;
-        case WATCHDOG_WARNING:
-          $severity = MigrationBase::MESSAGE_WARNING;
-          break;
-        case WATCHDOG_NOTICE:
-          $severity = MigrationBase::MESSAGE_NOTICE;
-          break;
-        case WATCHDOG_DEBUG:
-        case WATCHDOG_INFO:
-        default:
-          $severity = MigrationBase::MESSAGE_INFORMATIONAL;
-          break;
-      }
-      $migration->saveMessage(t($log_entry['message'], $log_entry['variables']), $severity);
+  // Ensure that the Migration class exists, as different bootstrap phases may
+  // not have included migration.inc yet.
+  if (class_exists('Migration') && $migration = Migration::currentMigration()) {
+    switch ($log_entry['severity']) {
+      case WATCHDOG_EMERGENCY:
+      case WATCHDOG_ALERT:
+      case WATCHDOG_CRITICAL:
+      case WATCHDOG_ERROR:
+        $severity = MigrationBase::MESSAGE_ERROR;
+        break;
+      case WATCHDOG_WARNING:
+        $severity = MigrationBase::MESSAGE_WARNING;
+        break;
+      case WATCHDOG_NOTICE:
+        $severity = MigrationBase::MESSAGE_NOTICE;
+        break;
+      case WATCHDOG_DEBUG:
+      case WATCHDOG_INFO:
+      default:
+        $severity = MigrationBase::MESSAGE_INFORMATIONAL;
+        break;
     }
+    $variables = is_array($log_entry['variables']) ? $log_entry['variables'] : array();
+    $migration->saveMessage(t($log_entry['message'], $variables), $severity);
   }
 }
 

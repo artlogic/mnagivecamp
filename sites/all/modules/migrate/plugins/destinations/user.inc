@@ -13,6 +13,14 @@
  * Destination class implementing migration into users.
  */
 class MigrateDestinationUser extends MigrateDestinationEntity {
+  /**
+   * Indicates whether incoming passwords are md5-encrypted - if so, we will
+   * rehash them similarly to the D6->D7 upgrade path.
+   *
+   * @var boolean
+   */
+  protected $md5Passwords = FALSE;
+
   static public function getKeySchema() {
     return array(
       'uid' => array(
@@ -31,9 +39,11 @@ class MigrateDestinationUser extends MigrateDestinationEntity {
    *  Default language for usrs created via this destination class.
    * @param string $text_format
    *  Default text format for users created via this destination class.
+   * @param boolean $md5_passwords
+   *  Set TRUE to indicate incoming passwords are md5-encrypted.
    */
-  static public function options($language, $text_format) {
-    return compact('language', 'text_format');
+  static public function options($language, $text_format, $md5_passwords) {
+    return compact('language', 'text_format', 'md5_passwords');
   }
 
   /**
@@ -44,6 +54,9 @@ class MigrateDestinationUser extends MigrateDestinationEntity {
    */
   public function __construct(array $options = array()) {
     parent::__construct('user', 'user', $options);
+    if (!empty($options['md5_passwords'])) {
+      $this->md5Passwords = $options['md5_passwords'];
+    }
   }
 
   /**
@@ -57,6 +70,7 @@ class MigrateDestinationUser extends MigrateDestinationEntity {
     $fields = array();
     // First the core (users table) properties
     $fields['uid'] = t('User: Existing user ID');
+    $fields['is_new'] = t('User: Indicates a new user with the specified uid should be created');
     $fields['name'] = t('User: Username');
     $fields['pass'] = t('User: Password (plain text)');
     $fields['mail'] = t('User: Email address');
@@ -123,19 +137,138 @@ class MigrateDestinationUser extends MigrateDestinationEntity {
       if (!isset($account->uid)) {
         throw new MigrateException(t('System-of-record is DESTINATION, but no destination uid provided'));
       }
+      $old_account = user_load($account->uid, TRUE);
+    }
+    else {
+      $old_account = $account;
+    }
+
+    // Roles must be arrays keyed by the role id, which isn't how the data
+    // naturally comes in. Fix them up.
+    if (!empty($account->roles)) {
+      if (!is_array($account->roles)) {
+        $account->roles = array($account->roles);
+      }
+      $account->roles = drupal_map_assoc($account->roles);
     }
 
     $this->prepare($account, $row);
+
+    if (isset($account->uid) && !(isset($account->is_new) && $account->is_new)) {
+      $updating = TRUE;
+    }
+    else {
+      $updating = FALSE;
+    }
+
     migrate_instrument_start('user_save');
-    $newaccount = user_save($account, (array)$account);
+    $newaccount = user_save($old_account, (array)$account);
     migrate_instrument_stop('user_save');
     if ($newaccount) {
+      if ($this->md5Passwords) {
+        // Ape the Drupal 6 -> Drupal 7 upgrade, which encrypts the MD5 text in the
+        // modern way, and marks it with a prepended U so it recognizes and fixes it
+        // up at login time.
+        $password = 'U' . $newaccount->pass;
+        db_update('users')
+          ->fields(array('pass' => $password))
+          ->condition('uid', $newaccount->uid)
+          ->execute();
+      }
+      if ($updating) {
+        $this->numUpdated++;
+      }
+      else {
+        $this->numCreated++;
+      }
       $this->complete($newaccount, $row);
-      $return = isset($newaccount->uid) ? array($newaccount->uid) : FALSE;
+      $return = array($newaccount->uid);
     }
     else {
       $return = FALSE;
     }
     return $return;
+  }
+}
+
+class MigrateDestinationRole extends MigrateDestinationTable {
+  public function __construct() {
+    parent::__construct('role');
+  }
+
+  /**
+   * Get the key definition for the role table.
+   *
+   * @param $dummy
+   *  PHP is picky - it throws E_STRICT notices if we don't have a parameter
+   *  because MigrateDestinationTable has one.
+   */
+  static public function getKeySchema($dummy = NULL) {
+    return MigrateDestinationTable::getKeySchema('role');
+  }
+
+  /**
+   * Delete a single row.
+   *
+   * @param $id
+   *  Primary key values.
+   */
+  public function rollback(array $id) {
+    migrate_instrument_start('role rollback');
+    $rid = reset($id);
+    user_role_delete((int)$rid);
+    migrate_instrument_stop('role rollback');
+  }
+
+  /**
+   * Import a single row.
+   *
+   * @param $entity
+   *  Object object to build. Prefilled with any fields mapped in the Migration.
+   * @param $row
+   *  Raw source data object - passed through to prepare/complete handlers.
+   * @return array
+   *  Array of key fields of the object that was saved if
+   *  successful. FALSE on failure.
+   */
+  public function import(stdClass $entity, stdClass $row) {
+    $migration = Migration::currentMigration();
+    // Updating previously-migrated content?
+    if (isset($row->migrate_map_destid1)) {
+      if (isset($entity->rid)) {
+        if ($entity->rid != $row->migrate_map_destid1) {
+          throw new MigrateException(t("Incoming id !id and map destination id !destid don't match",
+            array('!id' => $entity->rid, '!destid' => $row->migrate_map_destid1)));
+        }
+        else {
+          $entity->rid = $row->migrate_map_destid1;
+        }
+      }
+    }
+
+    if ($migration->getSystemOfRecord() == Migration::DESTINATION) {
+      if (!isset($entity->rid)) {
+        throw new MigrateException(t('System-of-record is DESTINATION, but no destination id provided'));
+      }
+
+      $old_entity = user_role_load($entity->rid);
+
+      foreach ($entity as $field => $value) {
+        $old_entity->$field = $entity->$field;
+      }
+      $entity = $old_entity;
+    }
+
+    $this->prepare($entity, $row);
+    user_role_save($entity);
+    $this->complete($entity, $row);
+
+    if (!empty($entity->rid)) {
+      $id = array($entity->rid);
+    }
+    else {
+      $id = FALSE;
+    }
+    return $id;
   }
 }

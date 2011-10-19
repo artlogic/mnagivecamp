@@ -59,7 +59,7 @@ function hook_uc_add_to_cart($nid, $qty, $data) {
  *
  * This is effectively the submit handler of any alterations to the Add to Cart
  * form. It provides a standard way to store the extra information so that it
- * can be used by hook_add_to_cart().
+ * can be used by hook_uc_add_to_cart().
  *
  * @param $form_values
  *   The values submitted to the Add to Cart form.
@@ -102,8 +102,8 @@ function hook_uc_add_to_cart_data($form_values) {
  *     - #type: markup
  *     - #value: The displayed title of the $item.
  *   - "#total"
- *     - "type": float
- *     - "value": Numeric price of $item. Notice the '#' signifying that this is
+ *     - type: float
+ *     - value: Numeric price of $item. Notice the '#' signifying that this is
  *       not a form element but just a value stored in the form array.
  *   - "data"
  *     - #type: hidden
@@ -147,8 +147,8 @@ function hook_uc_cart_display($item) {
  * Products that are added to a customer's cart are referred as items until the
  * sale is completed. Just think of a grocery store having a bunch of products
  * on the shelves but putting a sign over the express lane saying "15 Items or
- * Less." hook_cart_item() is in charge of acting on items at various times like
- * when they are being added to a cart, saved, loaded, and checked out.
+ * Less." hook_uc_cart_item() is in charge of acting on items at various times
+ * like when they are being added to a cart, saved, loaded, and checked out.
  *
  * Here's the rationale for this hook: Products may change on a live site during
  * a price increase or change to attribute adjustments. If a user has previously
@@ -160,26 +160,27 @@ function hook_uc_cart_display($item) {
  *
  * @param $op
  *   The action that is occurring. Possible values:
- *   - "load" - Passed for each item when a cart is being loaded in the function
- *       uc_cart_get_contents(). This gives modules the chance to tweak
- *       information for items when the cart is being loaded prior to being
- *       added to an order. No return value is expected.
- *   - "view" - Passed for each item when it is about to be displayed on the
- *       cart page. Modifications made affect only displayed information and are
- *       not used in any calculations.
- *   - "can_ship" - Passed when a cart is being scanned for items that are not
- *       shippable items. Ubercart will bypass cart and checkout operations
- *       specifically related to tangible products if nothing in the cart is
- *       shippable. hook_cart_item functions that check for this op are expected
- *       to return TRUE or FALSE based on whether a product is shippable or not.
- *   - "remove" - Passed when an item is removed from the cart.
- *   - "checkout" - Passed for each item when the cart is being emptied for
- *       checkout.
+ *   - load: Passed for each item when a cart is being loaded in the function
+ *     uc_cart_get_contents(). This gives modules the chance to tweak
+ *     information for items when the cart is being loaded prior to being
+ *     added to an order. No return value is expected.
+ *   - view: Passed for each item when it is about to be displayed on the
+ *     cart page. Modifications made affect only displayed information and are
+ *     not used in any calculations.
+ *   - can_ship: Passed when a cart is being scanned for items that are not
+ *     shippable items. Ubercart will bypass cart and checkout operations
+ *     specifically related to tangible products if nothing in the cart is
+ *     shippable. hook_uc_cart_item() functions that check for this op are
+ *     expected to return TRUE or FALSE based on whether a product is
+ *     shippable or not.
+ *   - remove: Passed when an item is removed from the cart.
+ *   - checkout: Passed for each item when the cart is being emptied for
+ *     checkout.
  *
  * @return
  *   No return value for load or view. TRUE or FALSE for can_ship.
  */
-function hook_uc_cart_item($op, &$item) {
+function hook_uc_cart_item($op, $item) {
   switch ($op) {
     case 'load':
       $term = array_shift(taxonomy_node_get_terms_by_vocabulary($item->nid, variable_get('uc_manufacturer_vid', 0)));
@@ -193,18 +194,15 @@ function hook_uc_cart_item($op, &$item) {
  *
  * The default cart view page displays a table of the cart contents and a few
  * simple form features to manage the cart contents. For a module to add
- * information to this page, it must use hook_cart_pane to define extra panes
- * that may be ordered to appear above or below the default information.
+ * information to this page, it must use hook_uc_cart_pane() to define extra
+ * panes that may be ordered to appear above or below the default information.
  *
  * @param $items
  *   The current contents of the shopping cart.
  *
  * @return
- *   The function is expected to return an array of pane arrays with the
- *   following keys:
- *   - "id"
- *     - type: string
- *     - value: The internal ID of the pane, using a-z, 0-9, and - or _.
+ *   The function is expected to return an array of pane arrays, keyed by the
+ *   internal ID of the pane, each with the following members:
  *   - "title"
  *     - type: string
  *     - value: The name of the cart pane displayed to the user.  Use t().
@@ -233,8 +231,7 @@ function hook_uc_cart_pane($items) {
     );
   }
 
-  $panes[] = array(
-    'id' => 'cart_form',
+  $panes['cart_form'] = array(
     'title' => t('Default cart form'),
     'enabled' => TRUE,
     'weight' => 0,
@@ -245,25 +242,20 @@ function hook_uc_cart_pane($items) {
 }
 
 /**
- * Alter cart pane definitions.
+ * Alters cart pane definitions.
  *
  * @param $panes
  *   The array of pane information in the format defined in hook_uc_cart_pane(),
  *   passed by reference.
- *
  * @param $items
  *   The array of item information.
  */
 function hook_uc_cart_pane_alter(&$panes, $items) {
-  foreach ($panes as &$pane) {
-    if ($pane['id'] == 'cart') {
-      $pane['body'] = drupal_get_form('my_custom_pane_form_builder', $items);
-    }
-  }
+  $panes['cart_form']['body'] = drupal_get_form('my_custom_pane_form_builder', $items);
 }
 
 /**
- * Take action when checkout is completed.
+ * Takes action when checkout is completed.
  *
  * @param $order
  *   The resulting order object from the completed checkout.
@@ -300,7 +292,7 @@ function hook_uc_checkout_complete($order, $account) {
  * The checkout screen for Ubercart is a compilation of enabled checkout panes.
  * A checkout pane can be used to display order information, collect data from
  * the customer, or interact with other panes. Panes are defined in enabled
- * modules with hook_checkout_pane() and displayed and processed through
+ * modules with hook_uc_checkout_pane() and displayed and processed through
  * specified callback functions. Some of the settings for each pane are
  * configurable from the checkout settings page with defaults being specified
  * in the hooks.
@@ -312,13 +304,11 @@ function hook_uc_checkout_complete($order, $account) {
  * panes for shipping and payment purposes as well.
  *
  * @return
- *   An array of checkout pane arrays using the following keys:
- *   - id:
- *     - type: string
- *     - value: The internal ID of the checkout pane, using a-z, 0-9, and - or _.
+ *   An array of checkout pane arrays, keyed by the internal ID of the pane, each
+ *   with the following members:
  *   - title:
  *     - type: string
- *     - value:The name of the pane as it appears on the checkout form.
+ *     - value: The name of the pane as it appears on the checkout form.
  *   - desc:
  *     - type: string
  *     - value: A short description of the pane for the admin pages.
@@ -348,8 +338,7 @@ function hook_uc_checkout_complete($order, $account) {
  *       Defaults to NULL.
  */
 function hook_uc_checkout_pane() {
-  $panes[] = array(
-    'id' => 'cart',
+  $panes['cart'] = array(
     'callback' => 'uc_checkout_pane_cart',
     'title' => t('Cart Contents'),
     'desc' => t("Display the contents of a customer's shopping cart."),
@@ -432,11 +421,7 @@ function uc_checkout_pane_callback($op, $order, $form = NULL, &$form_state = NUL
  *   passed by reference.
  */
 function hook_uc_checkout_pane_alter(&$panes) {
-  foreach ($panes as &$pane) {
-    if ($pane['id'] == 'cart') {
-      $pane['callback'] = 'my_custom_module_callback';
-    }
-  }
+  $panes['cart']['callback'] = 'my_custom_module_callback';
 }
 
 /**
