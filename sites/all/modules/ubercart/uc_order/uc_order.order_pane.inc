@@ -333,11 +333,9 @@ function uc_order_add_product_form($form, &$form_state, $order, $node) {
     '#value' => $node->nid,
   );
   $form['qty'] = array(
-    '#type' => 'textfield',
-    '#title' => t('Qty'),
-    '#default_value' => '1',
-    '#size' => 2,
-    '#maxlength' => 5,
+    '#type' => 'uc_quantity',
+    '#title' => theme('uc_qty_label'),
+    '#default_value' => 1,
   );
   $form['actions'] = array('#type' => 'actions');
   $form['actions']['submit'] = array(
@@ -398,24 +396,30 @@ function uc_order_edit_products_form($form, &$form_state, $products) {
         '#value' => $products[$i]->nid,
       );
       $form['products'][$i]['qty'] = array(
-        '#type' => 'textfield',
+        '#type' => 'uc_quantity',
+        '#title' => theme('uc_qty_label'),
+        '#title_display' => 'invisible',
         '#default_value' => $products[$i]->qty,
-        '#size' => 2,
-        '#maxlength' => 6,
       );
       $form['products'][$i]['title'] = array(
         '#type' => 'textfield',
+        '#title' => t('Title'),
+        '#title_display' => 'invisible',
         '#default_value' => $products[$i]->title,
         '#size' => 30,
         '#maxlength' => 255,
       );
       $form['products'][$i]['model'] = array(
         '#type' => 'textfield',
+        '#title' => t('SKU'),
+        '#title_display' => 'invisible',
         '#default_value' => $products[$i]->model,
         '#size' => 6,
       );
       $form['products'][$i]['weight'] = array(
         '#type' => 'textfield',
+        '#title' => t('Weight'),
+        '#title_display' => 'invisible',
         '#default_value' => $products[$i]->weight,
         '#size' => 3,
       );
@@ -427,17 +431,23 @@ function uc_order_edit_products_form($form, &$form_state, $products) {
       );
       $form['products'][$i]['weight_units'] = array(
         '#type' => 'select',
+        '#title' => t('Units'),
+        '#title_display' => 'invisible',
         '#default_value' => $products[$i]->weight_units,
         '#options' => $units,
       );
       $form['products'][$i]['cost'] = array(
-        '#type' => 'textfield',
-        '#default_value' => uc_store_format_price_field_value($products[$i]->cost),
+        '#type' => 'uc_price',
+        '#title' => t('Cost'),
+        '#title_display' => 'invisible',
+        '#default_value' => $products[$i]->cost,
         '#size' => 5,
       );
       $form['products'][$i]['price'] = array(
-        '#type' => 'textfield',
-        '#default_value' => uc_store_format_price_field_value($products[$i]->price),
+        '#type' => 'uc_price',
+        '#title' => t('Price'),
+        '#title_display' => 'invisible',
+        '#default_value' => $products[$i]->price,
         '#size' => 5,
       );
       $form['products'][$i]['data'] = array(
@@ -449,7 +459,6 @@ function uc_order_edit_products_form($form, &$form_state, $products) {
   else {
     $form['products'] = array(
       '#markup' => t('This order contains no products.'),
-      '#cell_attributes' => array('colspan' => 'full'),
       '#prefix' => '<div id="order-edit-products">',
       '#suffix' => '</div>',
     );
@@ -754,13 +763,10 @@ function uc_order_pane_line_items($op, $order, &$form = NULL, &$form_state = NUL
                        . addslashes(t('Remove this line item?')) . '\', this.id);" />',
           );
           $form['line_items'][$item['line_item_id']]['amount'] = array(
-            '#type' => 'textfield',
+            '#type' => 'uc_price',
             '#title' => t('Amount'),
-            '#default_value' => uc_store_format_price_field_value($item['amount']),
+            '#default_value' => $item['amount'],
             '#size' => 6,
-            '#maxlength' => 13,
-            '#field_prefix' => variable_get('uc_sign_after_amount', FALSE) ? '' : variable_get('uc_currency_sign', '$'),
-            '#field_suffix' => variable_get('uc_sign_after_amount', FALSE) ? variable_get('uc_currency_sign', '$') : '',
           );
         }
         else {
@@ -829,7 +835,7 @@ function uc_order_pane_line_items_submit($form, &$form_state) {
 
   if (is_array($values['line_items'])) {
     foreach ($values['line_items'] as $line) {
-      if (is_numeric($line['li_id']) && intval($line['li_id']) > 0) {
+      if (is_numeric($line['li_id']) && intval($line['li_id']) > 0 && isset($line['title']) && isset($line['amount'])) {
         uc_order_update_line_item($line['li_id'], $line['title'], $line['amount']);
       }
     }
@@ -988,10 +994,7 @@ function uc_order_view_update_form($form, &$form_state, $order) {
     '#weight' => 10,
   );
 
-  foreach (uc_order_status_list('general') as $status) {
-    $options[$status['id']] = $status['title'];
-  }
-  foreach (uc_order_status_list('specific') as $status) {
+  foreach (uc_order_status_list() as $status) {
     $options[$status['id']] = $status['title'];
   }
   $form['controls']['status'] = array(
@@ -1034,20 +1037,20 @@ function theme_uc_order_view_update_controls($variables) {
 function uc_order_view_update_form_submit($form, &$form_state) {
   global $user;
 
-  if ($form_state['values']['status'] != $form_state['values']['current_status']) {
-    if (uc_order_update_status($form_state['values']['order_id'], $form_state['values']['status'])) {
-      if (is_null($form_state['values']['order_comment']) || strlen($form_state['values']['order_comment']) == 0) {
-        uc_order_comment_save($form_state['values']['order_id'], $user->uid, '-', 'order', $form_state['values']['status'], $form_state['values']['notify']);
-      }
-    }
-  }
-
   if (!is_null($form_state['values']['order_comment']) && strlen(trim($form_state['values']['order_comment'])) > 0) {
     uc_order_comment_save($form_state['values']['order_id'], $user->uid, $form_state['values']['order_comment'], 'order', $form_state['values']['status'], $form_state['values']['notify']);
   }
 
   if (!is_null($form_state['values']['admin_comment']) && strlen(trim($form_state['values']['admin_comment'])) > 0) {
     uc_order_comment_save($form_state['values']['order_id'], $user->uid, $form_state['values']['admin_comment']);
+  }
+
+  if ($form_state['values']['status'] != $form_state['values']['current_status']) {
+    if (uc_order_update_status($form_state['values']['order_id'], $form_state['values']['status'])) {
+      if (is_null($form_state['values']['order_comment']) || strlen($form_state['values']['order_comment']) == 0) {
+        uc_order_comment_save($form_state['values']['order_id'], $user->uid, '-', 'order', $form_state['values']['status'], $form_state['values']['notify']);
+      }
+    }
   }
 
   // Let Rules send email if requested.
@@ -1070,7 +1073,7 @@ function uc_op_products_view_table($order) {
 
   $table['#columns']['qty'] = array(
     'cell' => array(
-      'data' => t('Qty'),
+      'data' => theme('uc_qty_label'),
       'class' => array('text-right'),
     ),
     'weight' => 0,
@@ -1174,7 +1177,7 @@ function uc_op_products_customer_table($order) {
 
   $table['#columns']['qty'] = array(
     'cell' => array(
-      'data' => t('Qty'),
+      'data' => theme('uc_qty_label'),
       'class' => array('text-right'),
     ),
     'weight' => 0,
@@ -1284,7 +1287,7 @@ function uc_op_products_edit_table() {
     'weight' => 0,
   );
   $table['#columns']['qty'] = array(
-    'cell' => t('Qty'),
+    'cell' => theme('uc_qty_label'),
     'weight' => 1,
   );
   $table['#columns']['title'] = array(

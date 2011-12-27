@@ -45,20 +45,12 @@ function uc_order_views_data() {
     ),
   );
 
-  $data['uc_order_statuses']['table']['join'] = array(
-    'uc_orders' => array(
-      'left_field' => 'order_status',
-      'field' => 'order_status_id',
-    ),
-  );
+  // Order status field.
   $data['uc_orders']['order_status'] = array(
     'title' => t('Order status'),
     'help' => t('The order status.'),
     'field' => array(
       'handler' => 'uc_order_handler_field_order_status',
-      'additional fields' => array(
-        'title' => array('table' => 'uc_order_statuses', 'field' => 'title'),
-      ),
       'click sortable' => TRUE,
     ),
     'sort' => array(
@@ -171,10 +163,6 @@ function uc_order_views_data() {
       'handler' => 'views_handler_filter_date',
     ),
   );
-  // Use the sleeker date_api views handler if the module is available
-  if (module_exists('date_api')) {
-    $data['uc_orders']['created']['filter']['handler'] = 'date_api_filter_handler';
-  }
 
   $data['uc_orders']['modified'] = array(
     'title' => t('Last modified'),
@@ -190,9 +178,11 @@ function uc_order_views_data() {
       'handler' => 'views_handler_filter_date',
     ),
   );
-  // Use the sleeker date_api views handler if the module is available
-  if (module_exists('date_api')) {
-    $data['uc_orders']['modified']['filter']['handler'] = 'date_api_filter_handler';
+
+  // Use the sleeker Date module views handler if available.
+  if (module_exists('date_views')) {
+    $data['uc_orders']['created']['filter']['handler'] = 'date_views_filter_handler_simple';
+    $data['uc_orders']['modified']['filter']['handler'] = 'date_views_filter_handler_simple';
   }
 
   $data['uc_orders']['actions'] = array(
@@ -267,12 +257,6 @@ function uc_order_views_data() {
         ),
         'handler' => 'uc_order_handler_field_order_fullname',
         'prefix' => $prefix,
-      ),
-      'sort' => array(
-        'handler' => 'views_handler_sort',
-      ),
-      'filter' => array(
-        'handler' => 'views_handler_filter_string',
       ),
     );
 
@@ -376,11 +360,28 @@ function uc_order_views_data() {
 
   // Ordered products.
   $data['uc_order_products']['table']['group'] = t('Ordered product');
+  $data['uc_order_products']['table']['base'] = array(
+    'field' => 'order_product_id',
+    'title' => t('Ordered products'),
+    'help' => t('Products that have been ordered in your Ubercart store.'),
+  );
 
   // Pull in node fields directly.
   $data['node']['table']['join']['uc_order_products'] = array(
     'left_field' => 'nid',
     'field' => 'nid',
+  );
+
+  // Pull in product fields directly.
+  $data['uc_products']['table']['join']['uc_order_products'] = array(
+    'left_field' => 'nid',
+    'field' => 'nid',
+  );
+
+  // Pull in order fields directly.
+  $data['uc_orders']['table']['join']['uc_order_products'] = array(
+    'left_field' => 'order_id',
+    'field' => 'order_id',
   );
 
   // Expose products to their orders as a relationship.
@@ -415,7 +416,7 @@ function uc_order_views_data() {
   );
 
   $data['uc_order_products']['qty'] = array(
-    'title' => t('Qty'),
+    'title' => t('Quantity'),
     'help' => t('The quantity ordered.'),
     'field' => array(
       'handler' => 'views_handler_field',

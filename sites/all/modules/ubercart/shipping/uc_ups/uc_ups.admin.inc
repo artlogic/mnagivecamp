@@ -8,14 +8,25 @@
 /**
  * UPS Online Tool settings.
  *
- * Records UPS account information neccessary to use the service. Allows testing
+ * Records UPS account information necessary to use the service. Allows testing
  * or production mode. Configures which UPS services are quoted to customers.
  *
- * @see uc_admin_settings_validate()
- * @see uc_admin_settings_submit()
+ * @see uc_ups_admin_settings_validate()
+ * @see uc_ups_admin_settings_submit()
  * @ingroup forms
  */
 function uc_ups_admin_settings($form, &$form_state) {
+
+  // Put fieldsets into vertical tabs
+  $form['ups-settings'] = array(
+    '#type' => 'vertical_tabs',
+    '#attached' => array(
+      'js' => array(
+        'vertical-tabs' => drupal_get_path('module', 'uc_ups') . '/uc_ups.admin.js',
+      ),
+    ),
+  );
+
   // Container for credential forms
   $form['uc_ups_credentials'] = array(
     '#type'          => 'fieldset',
@@ -23,6 +34,7 @@ function uc_ups_admin_settings($form, &$form_state) {
     '#description'   => t('Account number and authorization information.'),
     '#collapsible'   => TRUE,
     '#collapsed'     => TRUE,
+    '#group'         => 'ups-settings',
   );
 
   $form['uc_ups_credentials']['uc_ups_access_license'] = array(
@@ -52,7 +64,7 @@ function uc_ups_admin_settings($form, &$form_state) {
   $form['uc_ups_credentials']['uc_ups_connection_address'] = array(
     '#type' => 'select',
     '#title' => t('Server mode'),
-    '#description' => t('Use the Testing server while developing and configuring your site. Switch to the Production server only after you have demonstartated that transactions on the Testing server are working and you are ready to go live.'),
+    '#description' => t('Use the Testing server while developing and configuring your site. Switch to the Production server only after you have demonstrated that transactions on the Testing server are working and you are ready to go live.'),
     '#options' => array('https://wwwcie.ups.com/ups.app/xml/' => t('Testing'),
       'https://www.ups.com/ups.app/xml/' => t('Production'),
     ),
@@ -65,6 +77,7 @@ function uc_ups_admin_settings($form, &$form_state) {
     '#description' => t('Set the conditions that will return a UPS quote.'),
     '#collapsible' => TRUE,
     '#collapsed' => TRUE,
+    '#group'         => 'ups-settings',
   );
 
   $form['services']['uc_ups_services'] = array(
@@ -75,17 +88,6 @@ function uc_ups_admin_settings($form, &$form_state) {
     '#description' => t('Select the UPS services that are available to customers.'),
   );
 
-  $form['services']['service_conditions'] = array(
-    '#type' => 'fieldset',
-    '#title' => t('UPS service conditions'),
-    '#collapsible' => TRUE,
-    '#collapsed' => TRUE,
-  );
-  $conditions = rules_config_load('get_quote_from_ups');
-  if ($conditions) {
-    $conditions->form($form['services']['service_conditions'], $form_state);
-  }
-
   // Container for quote options
   $form['uc_ups_quote_options'] = array(
     '#type'          => 'fieldset',
@@ -93,6 +95,7 @@ function uc_ups_admin_settings($form, &$form_state) {
     '#description'   => t('Preferences that affect computation of quote.'),
     '#collapsible'   => TRUE,
     '#collapsed'     => TRUE,
+    '#group'         => 'ups-settings',
   );
 
   $form['uc_ups_quote_options']['uc_ups_all_in_one'] = array(
@@ -185,6 +188,7 @@ function uc_ups_admin_settings($form, &$form_state) {
     '#description'   => t('Modifiers to the shipping weight and quoted rate.'),
     '#collapsible'   => TRUE,
     '#collapsed'     => TRUE,
+    '#group'         => 'ups-settings',
   );
 
   // Form to select type of rate markup
@@ -236,6 +240,7 @@ function uc_ups_admin_settings($form, &$form_state) {
     '#description'   => t('Preferences for UPS Shipping Label Printing.  Additional permissions from UPS are required to use this feature.'),
     '#collapsible'   => TRUE,
     '#collapsed'     => TRUE,
+    '#group'         => 'ups-settings',
   );
 
   $period = drupal_map_assoc(array(86400, 302400, 604800, 1209600, 2419200, 0), 'format_interval');
@@ -255,6 +260,9 @@ function uc_ups_admin_settings($form, &$form_state) {
   $form['actions']['submit'] = array(
     '#type' => 'submit',
     '#value' => t('Save configuration'),
+  );
+  $form['actions']['cancel'] = array(
+    '#markup' => l(t('Cancel'), 'admin/store/settings/quotes'),
   );
 
   if (!empty($_POST) && form_get_errors()) {

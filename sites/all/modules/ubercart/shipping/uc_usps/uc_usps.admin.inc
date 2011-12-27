@@ -13,6 +13,17 @@
  * @ingroup forms
  */
 function uc_usps_admin_settings($form, &$form_state) {
+
+  // Put fieldsets into vertical tabs
+  $form['usps-settings'] = array(
+    '#type' => 'vertical_tabs',
+    '#attached' => array(
+      'js' => array(
+        'vertical-tabs' => drupal_get_path('module', 'uc_usps') . '/uc_usps.admin.js',
+      ),
+    ),
+  );
+
   // Container for credential forms
   $form['uc_usps_credentials'] = array(
     '#type'          => 'fieldset',
@@ -20,12 +31,13 @@ function uc_usps_admin_settings($form, &$form_state) {
     '#description'   => t('Account number and authorization information.'),
     '#collapsible'   => TRUE,
     '#collapsed'     => TRUE,
+    '#group'         => 'usps-settings',
   );
 
   $form['uc_usps_credentials']['uc_usps_user_id'] = array(
     '#type' => 'textfield',
     '#title' => t('USPS user ID'),
-    '#description' => t('To acquire or locate your user ID, refer to the <a href="!url">USPS documentation</a>.', array('!url' => 'http://www.ubercart.org/docs/user/312/usps_web_tool_shipping_quote_settings')),
+    '#description' => t('To acquire or locate your user ID, refer to the <a href="!url">USPS documentation</a>.', array('!url' => 'http://drupal.org/node/1308256')),
     '#default_value' => variable_get('uc_usps_user_id', ''),
   );
 
@@ -35,6 +47,7 @@ function uc_usps_admin_settings($form, &$form_state) {
     '#description' => t('Set the conditions that will return a USPS quote.'),
     '#collapsible' => TRUE,
     '#collapsed' => TRUE,
+    '#group'         => 'usps-settings',
   );
 
   $form['domestic']['uc_usps_online_rates'] = array(
@@ -52,17 +65,6 @@ function uc_usps_admin_settings($form, &$form_state) {
     '#description' => t('Select the USPS services that are available to customers. Be sure to include the services that the Postal Service agrees are available to you.'),
   );
 
-  $form['domestic']['env_conditions'] = array(
-    '#type' => 'fieldset',
-    '#title' => t('Envelope service conditions'),
-    '#collapsible' => TRUE,
-    '#collapsed' => TRUE,
-  );
-  $conditions = rules_config_load('get_quote_from_usps_env');
-  if ($conditions) {
-    $conditions->form($form['domestic']['env_conditions'], $form_state);
-  }
-
   $form['domestic']['uc_usps_services'] = array(
     '#type' => 'checkboxes',
     '#title' => t('USPS parcel services'),
@@ -71,23 +73,13 @@ function uc_usps_admin_settings($form, &$form_state) {
     '#description' => t('Select the USPS services that are available to customers. Be sure to include the services that the Postal Service agrees are available to you.'),
   );
 
-  $form['domestic']['parcel_conditions'] = array(
-    '#type' => 'fieldset',
-    '#title' => t('Parcel service conditions'),
-    '#collapsible' => TRUE,
-    '#collapsed' => TRUE,
-  );
-  $conditions = rules_config_load('get_quote_from_usps');
-  if ($conditions) {
-    $conditions->form($form['domestic']['parcel_conditions'], $form_state);
-  }
-
   $form['international'] = array(
     '#type' => 'fieldset',
     '#title' => t('USPS International'),
     '#description' => t('Set the conditions that will return a USPS International quote.'),
     '#collapsible' => TRUE,
     '#collapsed' => TRUE,
+    '#group'         => 'usps-settings',
   );
 
   $form['international']['uc_usps_intl_env_services'] = array(
@@ -98,17 +90,6 @@ function uc_usps_admin_settings($form, &$form_state) {
     '#description' => t('Select the USPS services that are available to customers. Be sure to include the services that the Postal Service agrees are available to you.'),
   );
 
-  $form['international']['env_conditions'] = array(
-    '#type' => 'fieldset',
-    '#title' => t('Envelope service conditions'),
-    '#collapsible' => TRUE,
-    '#collapsed' => TRUE,
-  );
-  $conditions = rules_config_load('get_quote_from_usps_intl_env');
-  if ($conditions) {
-    $conditions->form($form['international']['env_conditions'], $form_state);
-  }
-
   $form['international']['uc_usps_intl_services'] = array(
     '#type' => 'checkboxes',
     '#title' => t('USPS international parcel services'),
@@ -117,17 +98,6 @@ function uc_usps_admin_settings($form, &$form_state) {
     '#description' => t('Select the USPS services that are available to customers. Be sure to include the services that the Postal Service agrees are available to you.'),
   );
 
-  $form['international']['parcel_conditions'] = array(
-    '#type' => 'fieldset',
-    '#title' => t('Parcel service conditions'),
-    '#collapsible' => TRUE,
-    '#collapsed' => TRUE,
-  );
-  $conditions = rules_config_load('get_quote_from_usps_intl');
-  if ($conditions) {
-    $conditions->form($form['international']['parcel_conditions'], $form_state);
-  }
-
   // Container for quote options
   $form['uc_usps_quote_options'] = array(
     '#type'          => 'fieldset',
@@ -135,6 +105,7 @@ function uc_usps_admin_settings($form, &$form_state) {
     '#description'   => t('Preferences that affect computation of quote.'),
     '#collapsible'   => TRUE,
     '#collapsed'     => TRUE,
+    '#group'         => 'usps-settings',
   );
 
   $form['uc_usps_quote_options']['uc_usps_all_in_one'] = array(
@@ -182,6 +153,7 @@ function uc_usps_admin_settings($form, &$form_state) {
     '#description'   => t('Modifiers to the shipping weight and quoted rate.'),
     '#collapsible'   => TRUE,
     '#collapsed'     => TRUE,
+    '#group'         => 'usps-settings',
   );
 
   $form['uc_usps_markups']['uc_usps_rate_markup_type'] = array(
@@ -228,6 +200,9 @@ function uc_usps_admin_settings($form, &$form_state) {
   $form['actions']['submit'] = array(
     '#type' => 'submit',
     '#value' => t('Save configuration'),
+  );
+  $form['actions']['cancel'] = array(
+    '#markup' => l(t('Cancel'), 'admin/store/settings/quotes'),
   );
 
   if (!empty($_POST) && form_get_errors()) {

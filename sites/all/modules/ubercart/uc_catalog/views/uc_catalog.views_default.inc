@@ -14,7 +14,9 @@ function uc_catalog_views_default_views() {
   $view->description = t('Catalog');
   $view->tag = '';
   $view->base_table = 'node';
-  $view->api_version = 3;
+  $view->human_name = '';
+  $view->core = 0;
+  $view->api_version = '3.0';
   $view->disabled = FALSE; /* Edit this to true to make a default view disabled initially */
 
   /* Display: Defaults */
@@ -29,59 +31,51 @@ function uc_catalog_views_default_views() {
   $handler->display->display_options['style_options']['columns'] = array(
     'entity_id' => 'entity_id',
     'model' => 'model',
-    'timestamp' => 'timestamp',
     'title' => 'title',
-    'sell_price' => 'sell_price',
+    'timestamp' => 'title',
+    'display_price' => 'display_price',
     'buyitnowbutton' => 'buyitnowbutton',
   );
   $handler->display->display_options['style_options']['default'] = '-1';
   $handler->display->display_options['style_options']['info'] = array(
     'entity_id' => array(
-      'sortable' => 0,
-      'align' => '',
+      'align' => 'views-align-center',
       'separator' => '',
     ),
     'model' => array(
       'sortable' => 1,
-      'align' => '',
+      'default_sort_order' => 'asc',
+      'align' => 'views-align-left',
+      'separator' => '',
+    ),
+    'title' => array(
+      'sortable' => 1,
+      'default_sort_order' => 'asc',
+      'align' => 'views-align-left',
       'separator' => '',
     ),
     'timestamp' => array(
       'align' => '',
       'separator' => '',
     ),
-    'title' => array(
-      'sortable' => 1,
-      'align' => '',
-      'separator' => '',
-    ),
-    'sell_price' => array(
-      'sortable' => 1,
-      'align' => '',
+    'display_price' => array(
+      'align' => 'views-align-right',
       'separator' => '',
     ),
     'buyitnowbutton' => array(
-      'align' => '',
+      'align' => 'views-align-center',
       'separator' => '',
     ),
   );
   $handler->display->display_options['style_options']['override'] = 1;
   $handler->display->display_options['style_options']['sticky'] = 1;
-  /* Field: Fields: uc_product_image */
+  $handler->display->display_options['style_options']['empty_table'] = 0;
+  /* Field: Content: Image */
   $handler->display->display_options['fields']['entity_id']['id'] = 'entity_id';
   $handler->display->display_options['fields']['entity_id']['table'] = 'field_data_uc_product_image';
-  $handler->display->display_options['fields']['entity_id']['field'] = 'entity_id';
+  $handler->display->display_options['fields']['entity_id']['field'] = 'uc_product_image';
   $handler->display->display_options['fields']['entity_id']['label'] = '';
-  $handler->display->display_options['fields']['entity_id']['alter']['alter_text'] = 0;
-  $handler->display->display_options['fields']['entity_id']['alter']['make_link'] = 0;
-  $handler->display->display_options['fields']['entity_id']['alter']['absolute'] = 0;
-  $handler->display->display_options['fields']['entity_id']['alter']['trim'] = 0;
-  $handler->display->display_options['fields']['entity_id']['alter']['word_boundary'] = 1;
-  $handler->display->display_options['fields']['entity_id']['alter']['ellipsis'] = 1;
-  $handler->display->display_options['fields']['entity_id']['alter']['strip_tags'] = 0;
-  $handler->display->display_options['fields']['entity_id']['alter']['html'] = 0;
   $handler->display->display_options['fields']['entity_id']['hide_empty'] = 1;
-  $handler->display->display_options['fields']['entity_id']['empty_zero'] = 0;
   $handler->display->display_options['fields']['entity_id']['settings'] = array(
     'image_style' => 'uc_product_list',
     'image_link' => 'content',
@@ -90,111 +84,108 @@ function uc_catalog_views_default_views() {
   $handler->display->display_options['fields']['model']['id'] = 'model';
   $handler->display->display_options['fields']['model']['table'] = 'uc_products';
   $handler->display->display_options['fields']['model']['field'] = 'model';
-  $handler->display->display_options['fields']['model']['alter']['alter_text'] = 0;
-  $handler->display->display_options['fields']['model']['alter']['make_link'] = 0;
-  $handler->display->display_options['fields']['model']['alter']['absolute'] = 0;
-  $handler->display->display_options['fields']['model']['alter']['trim'] = 0;
-  $handler->display->display_options['fields']['model']['alter']['word_boundary'] = 1;
-  $handler->display->display_options['fields']['model']['alter']['ellipsis'] = 1;
-  $handler->display->display_options['fields']['model']['alter']['strip_tags'] = 0;
-  $handler->display->display_options['fields']['model']['alter']['html'] = 0;
-  $handler->display->display_options['fields']['model']['hide_empty'] = 0;
-  $handler->display->display_options['fields']['model']['empty_zero'] = 0;
-  $handler->display->display_options['fields']['model']['link_to_node'] = 0;
-  /* Field: Node: Has new content */
-  $handler->display->display_options['fields']['timestamp']['id'] = 'timestamp';
-  $handler->display->display_options['fields']['timestamp']['table'] = 'history';
-  $handler->display->display_options['fields']['timestamp']['field'] = 'timestamp';
-  $handler->display->display_options['fields']['timestamp']['exclude'] = TRUE;
-  $handler->display->display_options['fields']['timestamp']['alter']['alter_text'] = 0;
-  $handler->display->display_options['fields']['timestamp']['alter']['make_link'] = 0;
-  $handler->display->display_options['fields']['timestamp']['alter']['absolute'] = 0;
-  $handler->display->display_options['fields']['timestamp']['alter']['trim'] = 0;
-  $handler->display->display_options['fields']['timestamp']['alter']['word_boundary'] = 1;
-  $handler->display->display_options['fields']['timestamp']['alter']['ellipsis'] = 1;
-  $handler->display->display_options['fields']['timestamp']['alter']['strip_tags'] = 0;
-  $handler->display->display_options['fields']['timestamp']['alter']['html'] = 0;
-  $handler->display->display_options['fields']['timestamp']['hide_empty'] = 0;
-  $handler->display->display_options['fields']['timestamp']['empty_zero'] = 0;
-  $handler->display->display_options['fields']['timestamp']['link_to_node'] = 0;
-  $handler->display->display_options['fields']['timestamp']['comments'] = 0;
-  /* Field: Node: Title */
+  /* Field: Content: Title */
   $handler->display->display_options['fields']['title']['id'] = 'title';
   $handler->display->display_options['fields']['title']['table'] = 'node';
   $handler->display->display_options['fields']['title']['field'] = 'title';
-  $handler->display->display_options['fields']['title']['alter']['alter_text'] = 1;
-  $handler->display->display_options['fields']['title']['alter']['text'] = '[title] [timestamp]';
-  $handler->display->display_options['fields']['title']['alter']['make_link'] = 0;
-  $handler->display->display_options['fields']['title']['alter']['absolute'] = 0;
-  $handler->display->display_options['fields']['title']['alter']['trim'] = 0;
-  $handler->display->display_options['fields']['title']['alter']['word_boundary'] = 1;
-  $handler->display->display_options['fields']['title']['alter']['ellipsis'] = 1;
-  $handler->display->display_options['fields']['title']['alter']['strip_tags'] = 0;
-  $handler->display->display_options['fields']['title']['alter']['html'] = 0;
-  $handler->display->display_options['fields']['title']['hide_empty'] = 0;
-  $handler->display->display_options['fields']['title']['empty_zero'] = 0;
   $handler->display->display_options['fields']['title']['link_to_node'] = 1;
-  /* Field: Product: Sell price */
-  $handler->display->display_options['fields']['sell_price']['id'] = 'sell_price';
-  $handler->display->display_options['fields']['sell_price']['table'] = 'uc_products';
-  $handler->display->display_options['fields']['sell_price']['field'] = 'sell_price';
-  $handler->display->display_options['fields']['sell_price']['label'] = 'Price';
-  $handler->display->display_options['fields']['sell_price']['alter']['alter_text'] = 0;
-  $handler->display->display_options['fields']['sell_price']['alter']['make_link'] = 0;
-  $handler->display->display_options['fields']['sell_price']['alter']['absolute'] = 0;
-  $handler->display->display_options['fields']['sell_price']['alter']['trim'] = 0;
-  $handler->display->display_options['fields']['sell_price']['alter']['word_boundary'] = 1;
-  $handler->display->display_options['fields']['sell_price']['alter']['ellipsis'] = 1;
-  $handler->display->display_options['fields']['sell_price']['alter']['strip_tags'] = 0;
-  $handler->display->display_options['fields']['sell_price']['alter']['html'] = 0;
-  $handler->display->display_options['fields']['sell_price']['hide_empty'] = 0;
-  $handler->display->display_options['fields']['sell_price']['empty_zero'] = 0;
-  $handler->display->display_options['fields']['sell_price']['set_precision'] = 0;
-  $handler->display->display_options['fields']['sell_price']['precision'] = '0';
-  $handler->display->display_options['fields']['sell_price']['format_plural'] = 0;
+  /* Field: Content: Has new content */
+  $handler->display->display_options['fields']['timestamp']['id'] = 'timestamp';
+  $handler->display->display_options['fields']['timestamp']['table'] = 'history';
+  $handler->display->display_options['fields']['timestamp']['field'] = 'timestamp';
+  /* Field: Product: Display price */
+  $handler->display->display_options['fields']['display_price']['id'] = 'display_price';
+  $handler->display->display_options['fields']['display_price']['table'] = 'uc_products';
+  $handler->display->display_options['fields']['display_price']['field'] = 'display_price';
   /* Field: Product: Buy it now button */
   $handler->display->display_options['fields']['buyitnowbutton']['id'] = 'buyitnowbutton';
   $handler->display->display_options['fields']['buyitnowbutton']['table'] = 'uc_products';
   $handler->display->display_options['fields']['buyitnowbutton']['field'] = 'buyitnowbutton';
   $handler->display->display_options['fields']['buyitnowbutton']['label'] = '';
-  $handler->display->display_options['fields']['buyitnowbutton']['alter']['alter_text'] = 0;
-  $handler->display->display_options['fields']['buyitnowbutton']['alter']['make_link'] = 0;
-  $handler->display->display_options['fields']['buyitnowbutton']['alter']['absolute'] = 0;
-  $handler->display->display_options['fields']['buyitnowbutton']['alter']['trim'] = 0;
-  $handler->display->display_options['fields']['buyitnowbutton']['alter']['word_boundary'] = 1;
-  $handler->display->display_options['fields']['buyitnowbutton']['alter']['ellipsis'] = 1;
-  $handler->display->display_options['fields']['buyitnowbutton']['alter']['strip_tags'] = 0;
-  $handler->display->display_options['fields']['buyitnowbutton']['alter']['html'] = 0;
-  $handler->display->display_options['fields']['buyitnowbutton']['hide_empty'] = 0;
-  $handler->display->display_options['fields']['buyitnowbutton']['empty_zero'] = 0;
-  /* Argument: Taxonomy: Term ID (with depth) */
+  /* Contextual filter: Content: Has taxonomy term ID (with depth) */
   $handler->display->display_options['arguments']['term_node_tid_depth']['id'] = 'term_node_tid_depth';
   $handler->display->display_options['arguments']['term_node_tid_depth']['table'] = 'node';
   $handler->display->display_options['arguments']['term_node_tid_depth']['field'] = 'term_node_tid_depth';
   $handler->display->display_options['arguments']['term_node_tid_depth']['default_action'] = 'empty';
-  $handler->display->display_options['arguments']['term_node_tid_depth']['style_plugin'] = 'default_summary';
-  $handler->display->display_options['arguments']['term_node_tid_depth']['wildcard'] = '';
-  $handler->display->display_options['arguments']['term_node_tid_depth']['wildcard_substitution'] = '';
+  $handler->display->display_options['arguments']['term_node_tid_depth']['title_enable'] = 1;
   $handler->display->display_options['arguments']['term_node_tid_depth']['title'] = '%1';
+  $handler->display->display_options['arguments']['term_node_tid_depth']['breadcrumb_enable'] = 1;
   $handler->display->display_options['arguments']['term_node_tid_depth']['breadcrumb'] = 'Catalog';
   $handler->display->display_options['arguments']['term_node_tid_depth']['default_argument_type'] = 'taxonomy_tid';
   $handler->display->display_options['arguments']['term_node_tid_depth']['default_argument_options']['term_page'] = '1';
   $handler->display->display_options['arguments']['term_node_tid_depth']['default_argument_options']['node'] = 0;
   $handler->display->display_options['arguments']['term_node_tid_depth']['default_argument_options']['limit'] = 0;
-  $handler->display->display_options['arguments']['term_node_tid_depth']['validate_type'] = 'taxonomy_term';
+  $handler->display->display_options['arguments']['term_node_tid_depth']['summary']['format'] = 'default_summary';
+  $handler->display->display_options['arguments']['term_node_tid_depth']['specify_validation'] = 1;
+  $handler->display->display_options['arguments']['term_node_tid_depth']['validate']['type'] = 'taxonomy_term';
   $handler->display->display_options['arguments']['term_node_tid_depth']['validate_options']['vocabularies'] = array(
     'catalog' => 'catalog',
   );
   $handler->display->display_options['arguments']['term_node_tid_depth']['validate_options']['transform'] = 0;
-  $handler->display->display_options['arguments']['term_node_tid_depth']['validate_fail'] = 'empty';
+  $handler->display->display_options['arguments']['term_node_tid_depth']['validate']['fail'] = 'empty';
   $handler->display->display_options['arguments']['term_node_tid_depth']['depth'] = '0';
   $handler->display->display_options['arguments']['term_node_tid_depth']['break_phrase'] = 0;
   $handler->display->display_options['arguments']['term_node_tid_depth']['set_breadcrumb'] = 1;
   $handler->display->display_options['arguments']['term_node_tid_depth']['use_taxonomy_term_path'] = 0;
+  /* Filter criterion: Content: Published */
+  $handler->display->display_options['filters']['status']['id'] = 'status';
+  $handler->display->display_options['filters']['status']['table'] = 'node';
+  $handler->display->display_options['filters']['status']['field'] = 'status';
+  $handler->display->display_options['filters']['status']['value'] = '1';
+  /* Filter criterion: Node: Is a product */
+  $handler->display->display_options['filters']['is_product']['id'] = 'is_product';
+  $handler->display->display_options['filters']['is_product']['table'] = 'uc_products';
+  $handler->display->display_options['filters']['is_product']['field'] = 'is_product';
+  $handler->display->display_options['filters']['is_product']['value'] = '1';
 
   /* Display: Page */
-  $handler = $view->new_display('page', 'Page', 'catalog');
+  $handler = $view->new_display('page', 'Table', 'catalog');
   $handler->display->display_options['path'] = '_catalog';
+
+  /* Display: Page */
+  $handler = $view->new_display('page', 'Grid', 'catalog_grid');
+  $handler->display->display_options['defaults']['css_class'] = FALSE;
+  $handler->display->display_options['css_class'] = 'uc-catalog';
+  $handler->display->display_options['defaults']['style_plugin'] = FALSE;
+  $handler->display->display_options['style_plugin'] = 'grid';
+  $handler->display->display_options['style_options']['columns'] = '3';
+  $handler->display->display_options['style_options']['fill_single_line'] = 1;
+  $handler->display->display_options['defaults']['style_options'] = FALSE;
+  $handler->display->display_options['defaults']['row_plugin'] = FALSE;
+  $handler->display->display_options['row_plugin'] = 'fields';
+  $handler->display->display_options['defaults']['row_options'] = FALSE;
+  $handler->display->display_options['defaults']['fields'] = FALSE;
+  /* Field: Content: Title */
+  $handler->display->display_options['fields']['title']['id'] = 'title';
+  $handler->display->display_options['fields']['title']['table'] = 'node';
+  $handler->display->display_options['fields']['title']['field'] = 'title';
+  $handler->display->display_options['fields']['title']['label'] = '';
+  /* Field: Product: SKU */
+  $handler->display->display_options['fields']['model']['id'] = 'model';
+  $handler->display->display_options['fields']['model']['table'] = 'uc_products';
+  $handler->display->display_options['fields']['model']['field'] = 'model';
+  $handler->display->display_options['fields']['model']['label'] = '';
+  /* Field: Content: Image */
+  $handler->display->display_options['fields']['entity_id']['id'] = 'entity_id';
+  $handler->display->display_options['fields']['entity_id']['table'] = 'field_data_uc_product_image';
+  $handler->display->display_options['fields']['entity_id']['field'] = 'uc_product_image';
+  $handler->display->display_options['fields']['entity_id']['label'] = '';
+  $handler->display->display_options['fields']['entity_id']['hide_empty'] = 1;
+  $handler->display->display_options['fields']['entity_id']['settings'] = array(
+    'image_style' => 'uc_product_list',
+    'image_link' => 'content',
+  );
+  /* Field: Product: Display price */
+  $handler->display->display_options['fields']['display_price']['id'] = 'display_price';
+  $handler->display->display_options['fields']['display_price']['table'] = 'uc_products';
+  $handler->display->display_options['fields']['display_price']['field'] = 'display_price';
+  $handler->display->display_options['fields']['display_price']['label'] = '';
+  /* Field: Product: Buy it now button */
+  $handler->display->display_options['fields']['buyitnowbutton']['id'] = 'buyitnowbutton';
+  $handler->display->display_options['fields']['buyitnowbutton']['table'] = 'uc_products';
+  $handler->display->display_options['fields']['buyitnowbutton']['field'] = 'buyitnowbutton';
+  $handler->display->display_options['fields']['buyitnowbutton']['label'] = '';
+  $handler->display->display_options['path'] = '_catalog_grid';
 
   $views[$view->name] = $view;
 
@@ -209,6 +200,7 @@ function uc_catalog_views_default_views() {
 
   /* Display: Defaults */
   $handler = $view->new_display('default', 'Defaults', 'default');
+  $handler->display->display_options['css_class'] = 'uc-catalog-terms';
   $handler->display->display_options['access']['type'] = 'none';
   $handler->display->display_options['cache']['type'] = 'none';
   $handler->display->display_options['query']['type'] = 'views_query';
@@ -238,6 +230,7 @@ function uc_catalog_views_default_views() {
   $handler->display->display_options['fields']['tid']['alter']['html'] = 0;
   $handler->display->display_options['fields']['tid']['hide_empty'] = 0;
   $handler->display->display_options['fields']['tid']['empty_zero'] = 0;
+  $handler->display->display_options['fields']['tid']['separator'] = '';
   $handler->display->display_options['fields']['tid']['format_plural'] = 0;
   /* Field: Fields: uc_catalog_image */
   $handler->display->display_options['fields']['entity_id']['id'] = 'entity_id';
@@ -283,6 +276,10 @@ function uc_catalog_views_default_views() {
   $handler->display->display_options['sorts']['weight']['id'] = 'weight';
   $handler->display->display_options['sorts']['weight']['table'] = 'taxonomy_term_data';
   $handler->display->display_options['sorts']['weight']['field'] = 'weight';
+  /* Sort criterion: Taxonomy term: Name */
+  $handler->display->display_options['sorts']['name']['id'] = 'name';
+  $handler->display->display_options['sorts']['name']['table'] = 'taxonomy_term_data';
+  $handler->display->display_options['sorts']['name']['field'] = 'name';
   /* Argument: Taxonomy: Parent term */
   $handler->display->display_options['arguments']['parent']['id'] = 'parent';
   $handler->display->display_options['arguments']['parent']['table'] = 'taxonomy_term_hierarchy';

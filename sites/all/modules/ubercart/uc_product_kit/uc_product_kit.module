@@ -107,6 +107,24 @@ function uc_product_kit_node_info() {
 }
 
 /**
+ * Implements hook_prepare().
+ */
+function uc_product_kit_prepare($node) {
+  $defaults = array(
+    'mutable' => variable_get('uc_product_kit_mutable', UC_PRODUCT_KIT_UNMUTABLE_WITH_LIST),
+    'products' => array(),
+    'default_qty' => 1,
+    'ordering' => 0,
+  );
+
+  foreach ($defaults as $key => $value) {
+    if (!isset($node->$key)) {
+      $node->$key = $value;
+    }
+  }
+}
+
+/**
  * Implements hook_insert().
  *
  * Adds a row to {uc_products} to make a product. Extra information about the
@@ -381,6 +399,9 @@ function uc_product_kit_load($nodes) {
  */
 function uc_product_kit_theme() {
   return array(
+    'uc_product_kit_items_form' => array(
+      'render element' => 'form',
+    ),
     'uc_product_kit_add_to_cart' => array(
       'variables' => array('node' => NULL, 'view_mode' => 'full'),
     ),
@@ -459,9 +480,6 @@ function uc_product_kit_forms($form_id, $args) {
  * @ingroup forms
  */
 function uc_product_kit_form(&$node, $form_state) {
-  $sign_flag = variable_get('uc_sign_after_amount', FALSE);
-  $currency_sign = variable_get('uc_currency_sign', '$');
-
   $form['title'] = array(
     '#type' => 'textfield',
     '#title' => t('Name'),
@@ -487,7 +505,6 @@ function uc_product_kit_form(&$node, $form_state) {
     '#collapsible' => TRUE,
     '#collapsed' => FALSE,
     '#weight' => -10,
-    '#attributes' => array('class' => array('product-field')) ,
     '#group' => 'additional_settings',
   );
   $form['base']['mutable'] = array(
@@ -498,7 +515,7 @@ function uc_product_kit_form(&$node, $form_state) {
       UC_PRODUCT_KIT_UNMUTABLE_WITH_LIST => t('As a unit. Customers may only change how many kits they are buying. List component products.'),
       UC_PRODUCT_KIT_MUTABLE => t('As individual products. Customers may add or remove kit components at will. Discounts entered below are not applied to the kit price'),
     ),
-    '#default_value' => isset($node->mutable) ? $node->mutable : variable_get('uc_product_kit_mutable', UC_PRODUCT_KIT_UNMUTABLE_WITH_LIST),
+    '#default_value' => $node->mutable,
   );
   $form['base']['products'] = array(
     '#type' => 'select',
@@ -506,12 +523,17 @@ function uc_product_kit_form(&$node, $form_state) {
     '#required' => TRUE,
     '#title' => t('Products'),
     '#options' => $products,
-    '#default_value' => isset($node->products) ? array_keys($node->products) : array(),
+    '#default_value' => array_keys($node->products),
   );
   $total = 0;
   $base_total = 0;
-  $form['base']['items'] = array('#tree' => TRUE, '#weight' => 1);
-  if (isset($node->products)) {
+  $form['base']['items'] = array(
+    '#tree' => TRUE,
+    '#theme' => 'uc_product_kit_items_form',
+    '#weight' => 1,
+    '#description' => t('Enter a positive or negative discount to raise or lower the item price by that amount. The change is applied to each item in the kit.'),
+  );
+  if (!empty($node->products)) {
     foreach ($node->products as $i => $product) {
       $form['base']['items'][$i] = array(
         '#type' => 'fieldset',
@@ -521,21 +543,23 @@ function uc_product_kit_form(&$node, $form_state) {
         '#markup' => l($product->title, 'node/' . $i),
       );
       $form['base']['items'][$i]['qty'] = array(
-        '#type' => 'textfield',
+        '#type' => 'uc_quantity',
         '#title' => t('Quantity'),
+        '#title_display' => 'invisible',
         '#default_value' => $product->qty,
-        '#size' => 5,
       );
       $form['base']['items'][$i]['ordering'] = array(
         '#type' => 'weight',
         '#title' => t('List position'),
+        '#title_display' => 'invisible',
         '#default_value' => isset($product->ordering) ? $product->ordering : 0,
+        '#attributes' => array('class' => array('uc-product-kit-item-ordering')),
       );
 
       $form['base']['items'][$i]['discount'] = array(
         '#type' => 'textfield',
         '#title' => t('Discount'),
-        '#description' => t('Enter a positive or negative value to raise or lower the item price by that amount. This change is applied to each %product in the kit.', array('%product' => $product->title)),
+        '#title_display' => 'invisible',
         '#field_prefix' => uc_currency_format($product->sell_price) . ' + ',
         '#default_value' => isset($product->discount) ? number_format($product->discount, 3, '.', '') : 0,
         '#size' => 5,
@@ -557,33 +581,27 @@ function uc_product_kit_form(&$node, $form_state) {
       }
     }
     $form['base']['kit_total'] = array(
-      '#type' => 'textfield',
+      '#type' => 'uc_price',
       '#title' => t('Total price'),
       '#default_value' => $node->synchronized ? '' : $total,
       '#description' => t('If this field is set, the discounts of the individual products will be recalculated to equal this value. Currently, the total sell price is %price.', array('%price' => uc_currency_format($total))),
-      '#weight' => 0,
-      '#size' => 20,
-      '#maxlength' => 35,
-      '#field_prefix' => $sign_flag ? '' : $currency_sign,
-      '#field_suffix' => $sign_flag ? $currency_sign : '',
     );
   }
 
   if (variable_get('uc_product_add_to_cart_qty', FALSE)) {
     $form['base']['default_qty'] = array(
-      '#type' => 'textfield',
+      '#type' => 'uc_quantity',
       '#title' => t('Default quantity to add to cart'),
-      '#default_value' => isset($node->default_qty) ? $node->default_qty : 1,
+      '#default_value' => $node->default_qty,
       '#description' => t('Use 0 to disable the quantity field next to the add to cart button.'),
       '#weight' => 27,
-      '#size' => 5,
-      '#maxlength' => 6,
+      '#allow_zero' => TRUE,
     );
   }
   else {
     $form['base']['default_qty'] = array(
       '#type' => 'value',
-      '#value' => isset($node->default_qty) ? $node->default_qty : 1,
+      '#value' => $node->default_qty,
     );
   }
 
@@ -592,11 +610,50 @@ function uc_product_kit_form(&$node, $form_state) {
     '#title' => t('List position'),
     '#description' => t("Specify a value to set this product's position in product lists.<br />Products in the same position will be sorted alphabetically."),
     '#delta' => 25,
-    '#default_value' => isset($node->ordering) ? $node->ordering : 0,
+    '#default_value' => $node->ordering,
     '#weight' => 30,
   );
 
   return $form;
+}
+
+/**
+ * Renders the list of kit components on the product kit edit form.
+ *
+ * @ingroup themeable
+ */
+function theme_uc_product_kit_items_form($variables) {
+  $form = &$variables['form'];
+
+  $header = array(t('Product'), t('Quantity'), t('List position'), t('Discount'));
+  $rows = array();
+
+  foreach (element_children($form) as $item) {
+    $row = array(
+      drupal_render($form[$item]['link']),
+      drupal_render($form[$item]['qty']),
+      drupal_render($form[$item]['ordering']),
+      drupal_render($form[$item]['discount']),
+    );
+    $rows[] = array(
+      'data' => $row,
+      'class' => array('draggable'),
+    );
+  }
+
+  if (empty($rows)) {
+    return '';
+  }
+
+  drupal_add_tabledrag('uc-product-kit-item-table', 'order', 'sibling', 'uc-product-kit-item-ordering');
+
+  $output = theme('table', array('header' => $header, 'rows' => $rows, 'attributes' => array('id' => 'uc-product-kit-item-table')));
+
+  if (!empty($form['#description'])) {
+    $output .= '<div class="description">' . $form['#description'] . "</div>\n";
+  }
+
+  return $output;
 }
 
 /**
@@ -744,11 +801,9 @@ function uc_product_kit_add_to_cart_form($form, &$form_state, $node) {
   }
   if ($node->default_qty > 0 && variable_get('uc_product_add_to_cart_qty', FALSE)) {
     $form['qty'] = array(
-      '#type' => 'textfield',
+      '#type' => 'uc_quantity',
       '#title' => t('Quantity'),
       '#default_value' => $node->default_qty,
-      '#size' => 5,
-      '#maxlength' => 6,
     );
   }
   else {
@@ -1050,6 +1105,8 @@ function uc_product_kit_uc_cart_display($item) {
       $element['title'] = array('#markup' => l($kit->title, 'node/' . $kit->nid));
       $element['qty'] = array(
         '#type' => 'textfield',
+        '#title' => t('Quantity'),
+        '#title_display' => 'invisible',
         '#default_value' => $kit_qty,
         '#size' => 5,
         '#maxlength' => 6,
@@ -1136,4 +1193,14 @@ function _uc_product_kit_sort_products($a, $b) {
   else {
     return ($a->ordering < $b->ordering) ? -1 : 1;
   }
+}
+
+/**
+ * Implements hook_views_api().
+ */
+function uc_product_kit_views_api() {
+  return array(
+    'api' => 3,
+    'path' => drupal_get_path('module', 'uc_product_kit') .'/views',
+  );
 }

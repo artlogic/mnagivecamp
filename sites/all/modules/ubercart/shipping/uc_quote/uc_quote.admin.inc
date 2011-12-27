@@ -122,24 +122,41 @@ function uc_quote_method_settings($form, &$form_state) {
     '#tree' => TRUE,
   );
 
-  $enabled = variable_get('uc_quote_enabled', array());
-  $weight = variable_get('uc_quote_method_weight', array());
-  $methods = uc_quote_shipping_method_options();
-  if (is_array($methods)) {
-    foreach ($methods as $id => $title) {
-      // Ensure default values are set.
-      $enabled += array($id => FALSE);
-      $weight += array($id => 0);
+  foreach (uc_quote_methods(TRUE) as $method) {
+    if (isset($method['quote'])) {
+      $id = $method['id'];
+
+      // Build a list of operations links.
+      $operations = isset($method['operations']) ? $method['operations'] : array();
+      $operations += array('conditions' => array(
+        'title' => t('conditions'),
+        'href' => 'admin/store/settings/quotes/manage/get_quote_from_' . $id,
+        'weight' => 5,
+      ));
+
+      // Ensure "delete" comes towards the end of the list.
+      if (isset($operations['delete'])) {
+        $operations['delete']['weight'] = 10;
+      }
+      uasort($operations, 'drupal_sort_weight');
 
       $form['methods'][$id]['uc_quote_enabled'] = array(
         '#type' => 'checkbox',
-        '#title' => $title,
-        '#default_value' => $enabled[$id],
+        '#title' => $method['title'],
+        '#default_value' => $method['enabled'],
+      );
+      $form['methods'][$id]['description'] = array(
+        '#markup' => isset($method['description']) ? $method['description'] : '',
       );
       $form['methods'][$id]['uc_quote_method_weight'] = array(
         '#type' => 'weight',
-        '#default_value' => $weight[$id],
+        '#default_value' => $method['weight'],
         '#attributes' => array('class' => array('uc-quote-method-weight')),
+      );
+      $form['methods'][$id]['operations'] = array(
+        '#theme' => 'links',
+        '#links' => $operations,
+        '#attributes' => array('class' => array('links', 'inline')),
       );
     }
   }
@@ -196,12 +213,14 @@ function theme_uc_quote_method_settings($variables) {
 
   drupal_add_tabledrag('uc-quote-methods', 'order', 'sibling', 'uc-quote-method-weight');
 
-  $header = array(t('Shipping method'), t('List position'));
+  $header = array(t('Shipping method'), t('Details'),  array('data' => t('List position'), 'sort' => 'asc'), t('Operations'));
   $rows = array();
   foreach (element_children($form['methods']) as $method) {
     $row = array(
       drupal_render($form['methods'][$method]['uc_quote_enabled']),
+      drupal_render($form['methods'][$method]['description']),
       drupal_render($form['methods'][$method]['uc_quote_method_weight']),
+      drupal_render($form['methods'][$method]['operations']),
     );
 
     $rows[] = array(
@@ -210,13 +229,18 @@ function theme_uc_quote_method_settings($variables) {
     );
   }
 
-  $output = theme('table', array('header' => $header, 'rows' => $rows, 'attributes' => array('id' => 'uc-quote-methods')));
+  $output = theme('table', array(
+    'header' => $header,
+    'rows' => $rows,
+    'attributes' => array('id' => 'uc-quote-methods'),
+    'empty' => t('No shipping quotes have been configured yet.'),
+  ));
   $output .= drupal_render_children($form);
   return $output;
 }
 
 /**
- * Form validation for uc_quote_method_settinggs().
+ * Form validation for uc_quote_method_settings().
  *
  * Requires at least one enabled shipping method.
  *
@@ -238,7 +262,7 @@ function uc_quote_method_settings_validate($form, &$form_state) {
 }
 
 /**
- * Form submission handler for uc_quote_method_settinggs().
+ * Form submission handler for uc_quote_method_settings().
  *
  * @see uc_quote_method_settings()
  * @see uc_quote_method_settings_validate()

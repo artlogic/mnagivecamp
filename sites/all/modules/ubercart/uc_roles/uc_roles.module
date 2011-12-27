@@ -268,6 +268,10 @@ function uc_roles_form_user_profile_form_alter(&$form, &$form_state) {
 /**
  * Themes the roles dialog on the account edit page.
  *
+ * @param $variables
+ *   An associative array containing:
+ *   - form: A render element representing the form.
+ *
  * @ingroup themeable
  */
 function theme_uc_roles_user_new($variables) {
@@ -290,6 +294,10 @@ function theme_uc_roles_user_new($variables) {
 /**
  * Themes the role expiration table within the roles dialog on the
  * account edit page.
+ *
+ * @param $variables
+ *   An associative array containing:
+ *   - form: A render element representing the form.
  *
  * @ingroup themeable
  */
@@ -327,13 +335,12 @@ function theme_uc_roles_user_expiration($variables) {
     );
   }
 
-  if (!count($rows)) {
-    $rows[] = array(
-      array('data' => t('There are no pending expirations for roles this user.'), 'colspan' => 4),
-    );
-  }
-
-  $output = theme('table', array('header' => $header, 'rows' => $rows, 'caption' => t('Below you can add or remove time to the expiration dates of the following roles.')));
+  $output = theme('table', array(
+    'header' => $header,
+    'rows' => $rows,
+    'caption' => t('Below you can add or remove time to the expiration dates of the following roles.'),
+    'empty' => t('There are no pending expirations for roles this user.'),
+  ));
   $output .= drupal_render_children($form);
 
   return $output;
@@ -356,7 +363,7 @@ function uc_roles_user_validate($form, &$form_state) {
   }
 
   // Validate the amount of time for the expiration.
-  if ($edit['new_role'] && $category == 'account') {
+  if (!empty($edit['new_role']) && $category == 'account') {
     if (intval($edit['new_role_add_qty']) < 1) {
       form_set_error('new_role_add_qty', t('The expiration length must be a positive integer'));
     }
@@ -579,14 +586,14 @@ function uc_roles_uc_message() {
  ******************************************************************************/
 
 /**
- * Form builder for hook_product_feature.
+ * Form builder for hook_uc_product_feature.
  *
  * @see uc_roles_feature_form_validate()
  * @see uc_roles_feature_form_submit()
  * @ingroup forms
  */
 function uc_roles_feature_form($form, &$form_state, $node, $feature) {
-  $models = uc_product_get_models($node);
+  $models = uc_product_get_models($node->nid);
 
   // Check if editing or adding to set default values.
   if (!empty($feature)) {
@@ -684,22 +691,23 @@ function uc_roles_feature_form($form, &$form_state, $node, $feature) {
 
   $form['end_override'] = array(
     '#type' => 'checkbox',
-    '#title' => t('Override the default expiration period.'),
+    '#title' => t('Override the <a href="!url">default role expiration</a>.', array('!url' => url('admin/store/settings/products'))),
     '#default_value' => $default_end_override,
   );
 
   $form['role_lifetime'] = array(
     '#type' => 'fieldset',
-    '#title' => t('Expiration period'),
+    '#title' => t('Role expiration'),
     '#states' => array(
       'visible' => array('input[name="end_override"]' => array('checked' => TRUE)),
     ),
   );
   $form['role_lifetime']['expiration'] = array(
     '#type' => 'select',
+    '#title' => t('Expiration type'),
     '#options' => array(
-      'rel' => t('Relative from activation time'),
-      'abs' => t('Absolute role ending'),
+      'rel' => t('Relative to purchase date'),
+      'abs' => t('Fixed date'),
     ),
     '#default_value' => $default_end_type,
   );
@@ -725,7 +733,7 @@ function uc_roles_feature_form($form, &$form_state, $node, $feature) {
       'year' => t('year(s)')
     ),
     '#default_value' => $default_granularity,
-    '#description' => t('From the time the expiration period started.'),
+    '#description' => t('From the time the role was purchased.'),
     '#prefix' => '<div class="expiration">',
     '#suffix' => '</div>',
     '#states' => array(
@@ -740,7 +748,7 @@ function uc_roles_feature_form($form, &$form_state, $node, $feature) {
   );
   $form['role_lifetime']['absolute']['uc_roles_expire_absolute'] = array(
     '#type' => 'date',
-    '#description' => t('When this expiration period will end.'),
+    '#description' => t('Expire the role at the beginning of this day.'),
   );
   if ($end_time) {
     $form['role_lifetime']['uc_roles_expire_absolute']['#default_value'] = $end_time;
@@ -922,14 +930,15 @@ function uc_roles_feature_settings($form, &$form_state) {
 
   $form['role_lifetime'] = array(
     '#type' => 'fieldset',
-    '#title' => t('Default expiration period'),
+    '#title' => t('Default role expiration'),
   );
 
   $form['role_lifetime']['uc_roles_default_end_expiration'] = array(
     '#type' => 'select',
+    '#title' => t('Expiration type'),
     '#options' => array(
-      'rel' => t('Relative from activation time'),
-      'abs' => t('Absolute role ending'),
+      'rel' => t('Relative to purchase date'),
+      'abs' => t('Fixed date'),
     ),
     '#default_value' => variable_get('uc_roles_default_end_expiration', 'rel'),
   );
@@ -955,7 +964,7 @@ function uc_roles_feature_settings($form, &$form_state) {
       'month' => t('month(s)'),
       'year' => t('year(s)')
     ),
-    '#description' => t('The default amount of time a granted Ubercart role will last until it expires.'),
+    '#description' => t('From the time the role was purchased.'),
     '#prefix' => '<div class="expiration">',
     '#suffix' => '</div>',
     '#states' => array(
@@ -970,7 +979,7 @@ function uc_roles_feature_settings($form, &$form_state) {
   );
   $form['role_lifetime']['absolute']['uc_roles_default_end_time'] = array(
     '#type' => 'date',
-    '#description' => t('When this expiration period will end.'),
+    '#description' => t('Expire the role at the beginning of this day.'),
     '#default_value' => variable_get('uc_roles_default_end_time', array(
       'day' => date('j'),
       'month' => date('n'),

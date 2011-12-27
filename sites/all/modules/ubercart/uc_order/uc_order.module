@@ -75,6 +75,41 @@ function uc_order_menu() {
   global $user;
   $items = array();
 
+  $items['admin/store/customers'] = array(
+    'title' => 'Customers',
+    'description' => 'View and modify customer information and orders.',
+    'page callback' => 'uc_order_customers',
+    'access arguments' => array('view customers'),
+    'weight' => -6,
+    'file' => 'uc_order.customers.inc',
+    'position' => 'left',
+  );
+  $items['admin/store/customers/view'] = array(
+    'title' => 'View customers',
+    'description' => 'View and modify customer information and orders.',
+    'page arguments' => array(NULL, NULL, '25'),
+    'access arguments' => array('view customers'),
+    'weight' => -10,
+    'file' => 'uc_order.customers.inc',
+  );
+  $items['admin/store/customers/search'] = array(
+    'title' => 'Search customers',
+    'description' => 'Search through your customer list.',
+    'page callback' => 'uc_order_customer_search',
+    'access arguments' => array('view customers'),
+    'weight' => -5,
+    'file' => 'uc_order.customers.inc',
+  );
+  $items['admin/store/customers/orders/%'] = array(
+    'title' => 'Customer orders',
+    'description' => 'View a list of orders placed by this customer.',
+    'page callback' => 'uc_order_customer_orders',
+    'page arguments' => array(4),
+    'access arguments' => array('view all orders'),
+    'weight' => -5,
+    'file' => 'uc_order.customers.inc',
+  );
+
   $items['admin/store/settings/orders'] = array(
     'title' => 'Orders',
     'description' => 'Configure the display and workflow for orders.',
@@ -128,15 +163,15 @@ function uc_order_menu() {
     'weight' => -5,
     'file' => 'uc_order.admin.inc',
   );
-
-  $items['admin/store/orders/search'] = array(
-    'title' => 'Search orders',
-    'description' => 'Search existing orders.',
-    'page callback' => 'uc_order_usearch',
-    'access arguments' => array('view all orders'),
-    'weight' => 0,
+  $items['admin/store/orders/create/%user'] = array(
+    'title' => 'Create order for this customer',
+    'description' => 'Create an empty new order.',
+    'page callback' => 'uc_order_create_for_user',
+    'page arguments' => array(4),
+    'access arguments' => array('create orders'),
     'file' => 'uc_order.admin.inc',
   );
+  // admin/store/orders/search is provided by Views.
   $items['admin/store/orders/address_book'] = array(
     'title' => 'Select address',
     'page callback' => 'uc_order_address_book',
@@ -270,6 +305,22 @@ function uc_order_menu() {
 }
 
 /**
+ * Implements hook_menu_local_tasks_alter().
+ */
+function uc_order_menu_local_tasks_alter(&$data, $router_item, $root_path) {
+  if ($root_path == 'admin/store/customers/orders/%') {
+    $uid = $router_item['page_arguments'][0];
+    $item = menu_get_item('admin/store/orders/create/' . $uid);
+    if ($item['access']) {
+      $data['actions']['output'][] = array(
+        '#theme' => 'menu_local_action',
+        '#link' => $item,
+      );
+    }
+  }
+}
+
+/**
  * Title callback for admin/store/orders/%uc_order.
  */
 function uc_order_page_title($order) {
@@ -359,6 +410,9 @@ function uc_order_theme($existing, $type, $theme, $path) {
     'uc_order_search_fieldset' => array(
       'render element' => 'form',
     ),
+    'uc_order_customer_search_fieldset' => array(
+      'render element' => 'form',
+    ),
     'uc_order_edit_form' => array(
       'render element' => 'form',
       'file' => 'uc_order.admin.inc',
@@ -397,12 +451,28 @@ function uc_order_theme($existing, $type, $theme, $path) {
 }
 
 /**
+ * Implements hook_help().
+ */
+function uc_order_help($path, $arg) {
+  switch ($path) {
+    case 'admin/store/customers':
+      return '<p>' . t('This table lists out all users on your site who have placed orders.') . '</p>';
+
+    case 'admin/store/customers/search':
+      return '<p>' . t('Use this page to search through users on your site who have placed orders.') . '</p>';
+  }
+}
+
+/**
  * Implements hook_permission().
  */
 function uc_order_permission() {
   return array(
     'administer order workflow' => array(
       'title' => t('Administer order workflow'),
+    ),
+    'view customers' => array(
+      'title' => t('View customers'),
     ),
     'view own orders' => array(
       'title' => t('View own orders'),
@@ -593,7 +663,7 @@ function uc_order_views_api() {
  * Implements hook_form_FORM_ID_alter() for views_exposed_form().
  */
 function uc_order_form_views_exposed_form_alter(&$form, &$form_state) {
-  if ($form['#id'] == 'views-exposed-form-uc-orders-admin-page') {
+  if (substr($form['#id'], 0, 29) == 'views-exposed-form-uc-orders-') {
     $form['#attached']['js'][] = drupal_get_path('module', 'uc_order') . '/uc_order.js';
     $form['#attached']['js'][] = array(
       'data' => array(
@@ -605,6 +675,10 @@ function uc_order_form_views_exposed_form_alter(&$form, &$form_state) {
     );
 
     $form['#submit'][] = 'uc_order_form_views_exposed_form_submit';
+
+    if ($form['#id'] == 'views-exposed-form-uc-orders-search' && !module_exists('date_views')) {
+      drupal_set_message(t('Download the <a href="!url">Date module</a> and enable Date Views to allow searching orders by date.', array('!url' => 'http://drupal.org/project/date')), 'warning');
+    }
   }
 }
 
@@ -626,12 +700,6 @@ function uc_order_form_uc_store_settings_form_alter(&$form, &$form_state) {
     '#type' => 'checkbox',
     '#title' => t('Capitalize address on order screens'),
     '#default_value' => variable_get('uc_order_capitalize_addresses', TRUE),
-  );
-  $form['display']['uc_order_number_displayed'] = array(
-    '#type' => 'select',
-    '#title' => t('Number of orders on overview screen'),
-    '#options' => drupal_map_assoc(range(10, 100, 10)),
-    '#default_value' => variable_get('uc_order_number_displayed', 30),
   );
 }
 
@@ -834,187 +902,6 @@ function theme_uc_order_status_table($variables) {
   return theme('table', array('header' => $header, 'rows' => $rows));
 }
 
-/**
- * Form to input search parameters for orders.
- *
- * @see uc_order_search_form_submit()
- * @see theme_uc_order_search_fieldset()
- * @ingroup forms
- */
-function uc_order_search_form($form, &$form_state) {
-  $form['search'] = array(
-    '#type' => 'fieldset',
-    '#title' => t('Search options'),
-    '#collapsible' => TRUE,
-    '#collapsed' => arg(4) == 'results' ? TRUE : FALSE,
-    '#theme' => 'uc_order_search_fieldset',
-  );
-
-  $form['search']['desc'] = array(
-    '#markup' => '<div>' . t("Search for customers based on any of the following fields.  Use * as a wildcard to match any character.<br />For example, searching by last name for 's*' will return all customers whose last name starts with an s.<br />(<em>Leave a field empty to ignore it in the search.</em>)") . '</div>',
-  );
-
-  $form['search']['billing_first_name'] = array(
-    '#type' => 'textfield',
-    '#title' => t('Billing first name'),
-    '#default_value' => arg(5) != '0' ? arg(5) : '',
-    '#size' => 24,
-    '#maxlength' => 32,
-  );
-
-  $form['search']['billing_last_name'] = array(
-    '#type' => 'textfield',
-    '#title' => t('Billing last name'),
-    '#default_value' => arg(6) != '0' ? arg(6) : '',
-    '#size' => 24,
-    '#maxlength' => 32,
-  );
-
-  $form['search']['billing_company'] = array(
-    '#type' => 'textfield',
-    '#title' => t('Billing company'),
-    '#default_value' => arg(7) != '0' ? arg(7) : '',
-    '#size' => 24,
-    '#maxlength' => 96,
-  );
-
-  $form['search']['shipping_first_name'] = array(
-    '#type' => 'textfield',
-    '#title' => t('Shipping first name'),
-    '#default_value' => arg(8) != '0' ? arg(8) : '',
-    '#size' => 24,
-    '#maxlength' => 32,
-  );
-
-  $form['search']['shipping_last_name'] = array(
-    '#type' => 'textfield',
-    '#title' => t('Shipping last name'),
-    '#default_value' => arg(9) != '0' ? arg(9) : '',
-    '#size' => 24,
-    '#maxlength' => 32,
-  );
-
-  $form['search']['shipping_company'] = array(
-    '#type' => 'textfield',
-    '#title' => t('Shipping company'),
-    '#default_value' => arg(10) != '0' ? arg(10) : '',
-    '#size' => 24,
-    '#maxlength' => 96,
-  );
-
-  $form['search']['use_dates'] = array(
-    '#type' => 'checkbox',
-    '#title' => t('Search using date range.'),
-    '#description' => t('Specify dates to the right if checked.'),
-    '#default_value' => arg(11) != 0 ? 1 : 0,
-  );
-
-  $timestamp = arg(11) == 0 ? REQUEST_TIME : arg(11);
-  $form['search']['start_date'] = array(
-    '#type' => 'date',
-    '#title' => t('Start date'),
-    '#default_value' => array('year' => format_date($timestamp, 'custom', 'Y'), 'month' => format_date($timestamp, 'custom', 'n'), 'day' => format_date($timestamp, 'custom', 'j'))
-  );
-
-  $timestamp = arg(12) == 0 ? REQUEST_TIME : arg(12);
-  $form['search']['end_date'] = array(
-    '#type' => 'date',
-    '#title' => t('End date'),
-    '#default_value' => array('year' => format_date($timestamp, 'custom', 'Y'), 'month' => format_date($timestamp, 'custom', 'n'), 'day' => format_date($timestamp, 'custom', 'j')),
-  );
-
-  $form['search']['actions'] = array('#type' => 'actions');
-  $form['search']['actions']['submit'] = array(
-    '#type' => 'submit',
-    '#value' => t('Search'),
-  );
-
-  return $form;
-}
-
-/**
- * Returns HTML for the search fieldset on the uc_order_search_form().
- *
- * @see uc_order_search_form()
- * @ingroup themeable
- */
-function theme_uc_order_search_fieldset($variables) {
-  $form = $variables['form'];
-
-  $output = '<table><tbody style="border: 0em;"><tr><td colspan="4">';
-  $output .= drupal_render($form['desc']);
-
-  $output .= '</td></tr><tr><td>';
-  $output .= drupal_render($form['billing_first_name']);
-
-  $output .= '</td><td>';
-  $output .= drupal_render($form['billing_last_name']);
-
-  $output .= '</td><td>';
-  $output .= drupal_render($form['billing_company']);
-
-  $output .= '</td></tr><tr><td>';
-  $output .= drupal_render($form['shipping_first_name']);
-
-  $output .= '</td><td>';
-  $output .= drupal_render($form['shipping_last_name']);
-
-  $output .= '</td><td>';
-  $output .= drupal_render($form['shipping_company']);
-
-  $output .= '</td></tr><tr><td>';
-  $output .= drupal_render($form['use_dates']);
-
-  $output .= '</td><td>';
-  $output .= drupal_render($form['start_date']);
-
-  $output .= '</td><td>';
-  $output .= drupal_render($form['end_date']);
-
-  $output .= '</td></tr><tr><td colspan="3">';
-  $output .= drupal_render($form['submit']);
-
-  $output .= '</td></tr></tbody></table>';
-  $output .= drupal_render_children($form);
-
-  return $output;
-}
-
-/**
- * Form submission handler for uc_order_search_form().
- *
- * @see uc_order_search_form()
- */
-function uc_order_search_form_submit($form, &$form_state) {
-  $keys = array(
-    'billing_first_name',
-    'billing_last_name',
-    'billing_company',
-    'shipping_first_name',
-    'shipping_last_name',
-    'shipping_company',
-  );
-
-  foreach ($keys as $key) {
-    if (strlen(trim($form_state['values'][$key])) == 0) {
-      $args[] = '0';
-    }
-    else {
-      $args[] = strtolower(trim($form_state['values'][$key]));
-    }
-  }
-
-  if ($form_state['values']['use_dates']) {
-    $args[] = mktime(0, 0, 0, $form_state['values']['start_date']['month'], $form_state['values']['start_date']['day'], $form_state['values']['start_date']['year']);
-    $args[] = mktime(23, 59, 59, $form_state['values']['end_date']['month'], $form_state['values']['end_date']['day'], $form_state['values']['end_date']['year']);
-  }
-  else {
-    $args[] = '0';
-    $args[] = '0';
-  }
-
-  drupal_goto('admin/store/orders/search/results/' . implode('/', $args));
-}
 
 /*******************************************************************************
  * Module and Helper Functions
@@ -1043,8 +930,12 @@ function uc_order_order_entity_access($op, $order = NULL, $account = NULL) {
     }
   }
 
-  if ($op == 'edit') {
+  if ($op == 'update') {
     return user_access('edit orders', $account);
+  }
+
+  if ($op == 'create') {
+    return user_access('create orders', $account);
   }
 
   if ($op == 'view') {
@@ -1428,7 +1319,7 @@ function uc_order_comments_load($order_id, $admin = FALSE) {
 }
 
 /**
- * Inserts a comment, $type being either 'order' or 'admin'
+ * Inserts a comment, $type being either 'order' or 'admin'.
  */
 function uc_order_comment_save($order_id, $uid, $message, $type = 'admin', $status = 'pending', $notify = FALSE) {
   if ($type == 'admin') {
@@ -1495,7 +1386,7 @@ function uc_order_load_line_items($order) {
   $order->line_items = $items;
 
   foreach (_uc_line_item_list() as $type) {
-    if (empty($type['display_only']) && !empty($type['callback']) && function_exists($type['callback'])) {
+    if ($type['stored'] == FALSE && empty($type['display_only']) && !empty($type['callback']) && function_exists($type['callback'])) {
       $result = $type['callback']('load', $order);
       if ($result !== FALSE && is_array($result)) {
         foreach ($result as $line) {
@@ -1534,20 +1425,22 @@ function uc_order_load_line_items($order) {
  *   - weight: The line item weight.
  */
 function uc_order_load_line_items_display($order) {
+  $temp = clone $order;
   $line_items = uc_order_load_line_items($order);
-  $order->line_items = $line_items;
+  $temp->line_items = &$line_items;
 
   $items = _uc_line_item_list();
   foreach ($items as $item) {
     if (!empty($item['display_only'])) {
-      $result = $item['callback']('display', $order);
+      $result = $item['callback']('display', $temp);
       if (is_array($result)) {
         foreach ($result as $line) {
           $line_items[] = array(
             'type' => $item['id'],
             'title' => $line['title'],
             'amount' => $line['amount'],
-            'weight' => $item['weight']
+            'weight' => isset($line['weight']) ? $line['weight'] : $item['weight'],
+            'data' => isset($line['data']) ? $line['data'] : array(),
           );
         }
       }
@@ -1727,7 +1620,7 @@ function uc_order_exists($order_id) {
 }
 
 /**
- * Calculates an order's total!
+ * Calculates an order's total.
  */
 function uc_order_get_total($order, $products_only = FALSE) {
   $total = 0;
@@ -1796,7 +1689,7 @@ function uc_order_is_shippable($order) {
     foreach (module_implements('uc_cart_item') as $module) {
       $function = $module . '_uc_cart_item';
       if (function_exists($function)) {
-        // $product must be passed by reference to hook_cart_item.
+        // $product must be passed by reference to hook_uc_cart_item.
         $can_ship = $function('can_ship', $product);
         if (!is_null($can_ship)) {
           $result[] = $can_ship;
@@ -1866,6 +1759,7 @@ function template_preprocess_uc_order(&$variables) {
 
     $product->details = '';
     if (!empty($product->data['attributes'])) {
+      $attributes = array();
       foreach ($product->data['attributes'] as $attribute => $option) {
         $attributes[] = t('@attribute: @options', array('@attribute' => $attribute, '@options' => implode(', ', (array)$option)));
       }
@@ -1874,6 +1768,7 @@ function template_preprocess_uc_order(&$variables) {
   }
 
   $variables['line_items'] = uc_order_load_line_items_display($variables['order']);
+  $order->line_items = $variables['line_items'];
 
   // Generate tokens to use as template variables.
   $types = array(
@@ -1976,6 +1871,9 @@ function uc_order_state_list($scope = 'all', $sql = FALSE) {
     // Preserve backward compatibility for states with no key specified.
     if (is_numeric($id)) {
       $id = $state['id'];
+    }
+    else {
+      $state['id'] = $id;
     }
 
     if ($scope == 'all' || $state['scope'] == $scope) {
@@ -2227,6 +2125,29 @@ function uc_order_can_delete($order, $account = NULL) {
 }
 
 /**
+ * Entity metadata callback for getting order properties.
+ *
+ * @see uc_order_entity_property_info()
+ */
+function uc_order_uc_order_get_properties($order, array $options, $name, $entity_type) {
+  switch ($name) {
+    case 'customer':
+      return $order->uid;
+  }
+}
+
+/**
+ * Entity metadata callback for setting order properties.
+ *
+ * @see uc_order_entity_property_info()
+ */
+function uc_order_uc_order_set_properties($order, $name, $value) {
+  if ($name == 'customer') {
+    $order->uid = $value;
+  }
+}
+
+/**
  * Entity metadata callback to get delivery or billing address of an order.
  */
 function uc_order_address_property_get($order, array $options, $name, $entity_type) {
@@ -2276,4 +2197,18 @@ function uc_order_address_property_set($order, $name, $address) {
       $order->{$type . $field} = $value;
     }
   }
+}
+
+/**
+ * Entity metadata callback to get the full product node for an order product.
+ */
+function uc_order_product_node_property_get($product, array $options, $name, $entity_type) {
+  return node_load($product->nid);
+}
+
+/**
+ * Entity metadata callback to set the nid for an order product from a supplied node.
+ */
+function uc_order_product_node_property_set($product, $name, $node) {
+  $product->nid = $node->nid;
 }

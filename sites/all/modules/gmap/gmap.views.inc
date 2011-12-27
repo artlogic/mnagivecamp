@@ -50,9 +50,12 @@ function template_preprocess_gmap_views_view_gmapextended(&$vars) {
   foreach ($renders as $i => $row) {
     $markers[$i] = $options['fallback_values'];
     foreach ($options['field_purposes'] as $field => $purpose) {
+      if (!isset($markers[$i][$purpose])) {
+        $markers[$i][$purpose] = '';
+      }
       $markers[$i][$purpose] .= $row[$field];
     }
-  }
+  }  
   /*
   foreach ($options['field_purposes'] as $field => $purpose) {
     foreach ($renders as $i => $row) {

@@ -78,7 +78,7 @@ function uc_reports_help($path, $arg) {
       foreach (variable_get('uc_reports_reported_statuses', array('completed')) as $status) {
         $statuses[] = db_query("SELECT title FROM {uc_order_statuses} WHERE order_status_id = :id", array(':id' => $status))->fetchField();
       }
-      $order_statuses = t('<b>Order statuses used:</b> @statuses', array('@statuses' => implode(', ', $statuses)));
+      $order_statuses = t('<b>Order statuses used:</b> @statuses', array('@statuses' => implode(', ', array_filter($statuses))));
 
       $output .= "<p>$order_statuses</p>";
     }
@@ -171,7 +171,8 @@ function uc_reports_menu() {
 function uc_reports_theme() {
   return array(
     'uc_reports_product_table' => array(
-      'variables' => array('header' => NULL, 'rows' => NULL, 'attributes' => array(), 'caption' => NULL),
+      'variables' => array('header' => NULL, 'rows' => NULL, 'attributes' => array(), 'caption' => NULL, 'colgroups' => array(), 'sticky' => TRUE, 'empty' => ''),
+      'file' => 'uc_reports.admin.inc',
     ),
   );
 }

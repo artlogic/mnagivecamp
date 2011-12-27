@@ -733,6 +733,11 @@ function uc_paypal_ec_form_submit($form, &$form_state) {
 
   $nvp_response = uc_paypal_api_request($nvp_request, variable_get('uc_paypal_wpp_server', 'https://api-3t.sandbox.paypal.com/nvp'));
 
+  if ($nvp_response['ACK'] != 'Success') {
+    drupal_set_message(t('PayPal reported an error: @code: @message', array('@code' => $nvp_response['L_ERRORCODE0'], '@message' => $nvp_response['L_LONGMESSAGE0'])), 'error');
+    return;
+  }
+
   $_SESSION['cart_order'] = $order->order_id;
   $_SESSION['TOKEN'] = $nvp_response['TOKEN'];
 
@@ -877,7 +882,7 @@ function uc_paypal_wps_form($form, &$form_state, $order) {
     'tax_cart' => uc_currency_format($tax, FALSE, FALSE, '.'),
 
     // Shopping cart specific variables
-    'business' => variable_get('uc_paypal_wps_email', ''),
+    'business' => trim(variable_get('uc_paypal_wps_email', '')),
     'upload' => 1,
 
     'lc' => variable_get('uc_paypal_wps_language', 'US'),
@@ -944,7 +949,7 @@ function uc_paypal_wps_form($form, &$form_state, $order) {
   else {
     // List the whole cart as a single item to account for fees/discounts
     $data['amount_1'] = uc_currency_format($order->order_total - $shipping - $tax, FALSE, FALSE, '.');
-    $data['item_name_1'] = t('Order @order_id at !store', array('@order_id' => $order->order_id, '!store' => variable_get('uc_store_name', url('<front>', array('absolute' => TRUE)))));
+    $data['item_name_1'] = t('Order @order_id at !store', array('@order_id' => $order->order_id, '!store' => uc_store_name()));
     $data['on0_1'] = t('Product count');
     $data['os0_1'] = count($order->products);
   }

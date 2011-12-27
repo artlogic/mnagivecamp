@@ -233,7 +233,8 @@ function uc_order_rules_action_info() {
       'from' => array(
         'type' => 'text',
         'label' => t('Sender'),
-        'description' => t("Enter the 'From' email addresses, or leave blank to use your store email address. You may use order tokens for dynamic email addresses."),
+        'description' => t("Enter the 'From' email address, or leave blank to use your store email address. You may use order tokens for dynamic email addresses."),
+        'optional' => TRUE,
       ),
       'addresses' => array(
         'type' => 'text',
@@ -264,10 +265,13 @@ function uc_order_rules_action_info() {
       'from' => array(
         'type' => 'text',
         'label' => t('Sender'),
+        'description' => t("Enter the 'From' email address, or leave blank to use your store email address. You may use order tokens for dynamic email addresses."),
+        'optional' => TRUE,
       ),
       'addresses' => array(
         'type' => 'text',
         'label' => t('Recipients'),
+        'description' => t('Enter the email addresses to receive the invoice, one on each line. You may use order tokens for dynamic email addresses.'),
       ),
       'subject' => array(
         'type' => 'text',
@@ -308,11 +312,11 @@ function uc_order_condition_order_state($order, $order_state) {
  * @see uc_order_condition_order_state()
  */
 function uc_order_condition_order_state_options() {
-  foreach (uc_order_state_list('general') as $state) {
-    $options[$state['id']] = $state['title'];
+  foreach (uc_order_state_list('general') as $id => $state) {
+    $options[$id] = $state['title'];
   }
-  foreach (uc_order_state_list('specific') as $state) {
-    $options[$state['id']] = $state['title'];
+  foreach (uc_order_state_list('specific') as $id => $state) {
+    $options[$id] = $state['title'];
   }
 
   return $options;
@@ -351,9 +355,10 @@ function uc_order_condition_has_products($order, $products, $required, $forbidde
 function uc_order_condition_has_products_options() {
   $options = array();
   $result = db_query("SELECT nid FROM {uc_products}");
-  foreach ($result as $product) {
-    $options += uc_product_get_models(node_load($product->nid), FALSE);
+  foreach ($result as $row) {
+    $options += uc_product_get_models($row->nid, FALSE);
   }
+  asort($options);
 
   return $options;
 }
@@ -440,7 +445,9 @@ function uc_order_condition_products_weight($order, $products, $weight_units, $w
   }
   else {
     foreach ($products as $product) {
-      $total += $totals[$product];
+      if (isset($totals[$product])) {
+        $total += $totals[$product];
+      }
     }
   }
   switch ($op) {

@@ -20,8 +20,8 @@ function uc_stock_settings_form($form, &$form_state) {
   $form['uc_stock_threshold_notification_recipients'] = array(
     '#type' => 'textfield',
     '#title' => t('Notification recipients'),
-    '#default_value' => variable_get('uc_stock_threshold_notification_recipients', variable_get('uc_store_email', ini_get('sendmail_from'))),
-    '#description' => t('The list of comma seperated email addresses that will receive the notification.'),
+    '#default_value' => variable_get('uc_stock_threshold_notification_recipients', uc_store_email()),
+    '#description' => t('The list of comma-separated email addresses that will receive the notification.'),
   );
 
   $form['uc_stock_threshold_notification_subject'] = array(
@@ -91,7 +91,7 @@ function uc_stock_report() {
   $result = $query->execute();
   foreach ($result as $stock) {
     $op = array();
-    if (user_access('administer products')) {
+    if (user_access('administer product stock')) {
       $op[] = l(t('edit'), 'node/' . $stock->nid . '/edit/stock', $options = array('query' => array('destination' => 'admin/store/reports/stock')));
     }
 
@@ -197,7 +197,7 @@ function uc_stock_edit_form($form, &$form_state, $node) {
 
   $form['stock'] = array('#tree' => TRUE);
 
-  $skus = uc_product_get_models($node);
+  $skus = uc_product_get_models($node->nid);
 
   // Remove 'Any'.
   unset($skus[NULL]);
@@ -289,6 +289,10 @@ function uc_stock_edit_form_submit($form, &$form_state) {
 
 /**
  * Returns HTML for uc_stock_edit_form().
+ *
+ * @param $variables
+ *   An associative array containing:
+ *   - form: A render element representing the form.
  *
  * @see uc_stock_edit_form()
  * @see uc_stock_edit_form_submit()

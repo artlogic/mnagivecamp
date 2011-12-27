@@ -175,6 +175,7 @@ function uc_store_uninstall() {
   variable_del('date_format_uc_store');
   variable_del('uc_address_fields');
   variable_del('uc_address_fields_required');
+  variable_del('uc_address_fields_weight');
   variable_del('uc_footer_message');
 
   // Unset mail Ubercart hander in variable mail_system
@@ -266,4 +267,13 @@ function uc_store_update_7007() {
       throw new DrupalUpdateException(t('Rules and Views are now dependencies of Ubercart, but are not currently available. Please download them to sites/all/modules and run update.php again.'));
     }
   }
+}
+
+/**
+ * Delete unused address field titles.
+ */
+function uc_store_update_7008() {
+  variable_del('uc_field_address');
+  variable_del('uc_field_email');
+  variable_del('uc_field_street');
 }

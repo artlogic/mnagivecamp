@@ -24,15 +24,13 @@ function uc_product_class_default() {
       implode(' ', $ops),
     );
   }
-  if (count($rows) == 0) {
-    $rows[] = array(array('data' => t('No product classes have been defined yet.'), 'colspan' => '5'));
-  }
 
   $build = array();
   $build['product_classes'] = array(
     '#theme' => 'table',
     '#header' => $header,
     '#rows' => $rows,
+    '#empty' => t('No product classes have been defined yet.'),
   );
   $build['header'] = array(
     '#markup' => '<h2>' . t('Add a class') . '</h2>',
@@ -48,6 +46,8 @@ function uc_product_class_default() {
  * @ingroup forms
  */
 function uc_product_settings_form($form, &$form_state) {
+
+  // Put fieldsets into vertical tabs
   $form['product-settings'] = array('#type' => 'vertical_tabs');
 
   $form['product'] = array(
@@ -78,11 +78,13 @@ function uc_product_settings_form($form, &$form_state) {
     '#default_value' => variable_get('uc_product_image_widget', NULL),
   );
 
-  $form['product']['uc_product_add_to_cart_qty'] = array(
-    '#type' => 'checkbox',
-    '#title' => t('Display an optional quantity field in the <em>Add to Cart</em> form.'),
-    '#default_value' => variable_get('uc_product_add_to_cart_qty', FALSE),
-  );
+  if (module_exists('uc_cart')) {
+    $form['product']['uc_product_add_to_cart_qty'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Display an optional quantity field in the <em>Add to Cart</em> form.'),
+      '#default_value' => variable_get('uc_product_add_to_cart_qty', FALSE),
+    );
+  }
 
   foreach (module_invoke_all('uc_product_feature') as $feature) {
     if (isset($feature['settings']) &&
@@ -112,37 +114,30 @@ function uc_product_settings_form($form, &$form_state) {
 function uc_product_features($node, $fid = NULL, $pfid = NULL) {
   drupal_set_title($node->title);
 
-  $build = array();
-
   $header = array(t('Type'), t('Description'), t('Operations'));
+  $rows = array();
 
   $features = uc_product_feature_load_multiple($node->nid);
-  if (empty($features)) {
-    $rows[] = array(
-      array('data' => t('No features found for this product.'), 'colspan' => 3),
+  foreach ($features as $feature) {
+    $operations = array(
+      l(t('edit'), 'node/' . $node->nid . '/edit/features/' . $feature->fid . '/' . $feature->pfid),
+      l(t('delete'), 'node/' . $node->nid . '/edit/features/' . $feature->fid . '/' . $feature->pfid . '/delete'),
     );
-  }
-  else {
-    foreach ($features as $feature) {
-      $operations = array(
-        l(t('edit'), 'node/' . $node->nid . '/edit/features/' . $feature->fid . '/' . $feature->pfid),
-        l(t('delete'), 'node/' . $node->nid . '/edit/features/' . $feature->fid . '/' . $feature->pfid . '/delete'),
-      );
-      $rows[] = array(
-        'data' => array(
-          array('data' => uc_product_feature_data($feature->fid, 'title'), 'nowrap' => 'nowrap'),
-          array('data' => $feature->description, 'width' => '100%'),
-          array('data' => implode(' ', $operations), 'nowrap' => 'nowrap'),
-        ),
-        'valign' => 'top',
-      );
-    }
+    $rows[] = array(
+      'data' => array(
+        array('data' => uc_product_feature_data($feature->fid, 'title'), 'nowrap' => 'nowrap'),
+        array('data' => $feature->description, 'width' => '100%'),
+        array('data' => implode(' ', $operations), 'nowrap' => 'nowrap'),
+      ),
+      'valign' => 'top',
+    );
   }
 
   $build['features'] = array(
     '#theme' => 'table',
     '#header' => $header,
     '#rows' => $rows,
+    '#empty' => t('No features found for this product.'),
   );
   $build['add_form'] = drupal_get_form('uc_product_feature_add_form', $node);
 
@@ -224,6 +219,10 @@ function uc_product_feature_add_form($form, &$form_state, $node) {
 
 /**
  * Theme function for uc_product_feature_add_form().
+ *
+ * @param $variables
+ *   An associative array containing:
+ *   - form: A render element representing the form.
  *
  * @see uc_product_feature_add_form()
  * @ingroup themeable
@@ -320,13 +319,14 @@ function uc_product_class_form($form, &$form_state, $class = NULL) {
   $form['name'] = array(
     '#type' => 'textfield',
     '#title' => t('Class name'),
+    '#description' => t('The human-readable name of this content type as it should appear on the !create_content page.  There are no character restrictions on this name.', array('!create_content' => l(t('Create content'), 'node/add'))),
     '#default_value' => $classname,
     '#required' => TRUE,
   );
   $form['description'] = array(
     '#type' => 'textarea',
     '#title' => t('Description'),
-    '#description' => t('This text describes the content type created for this product class to administrators.'),
+    '#description' => t('This text describes the content type to administrators.'),
     '#default_value' => $classdesc,
   );
   $form['actions'] = array('#type' => 'actions');

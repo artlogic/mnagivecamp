@@ -12,17 +12,21 @@
  * @ingroup forms
  */
 function uc_cart_cart_settings_form($form, &$form_state) {
-  $form['cart-settings'] = array('#type' => 'vertical_tabs');
 
-  $form['general'] = array(
-    '#type' => 'fieldset',
-    '#title' => t('Basic settings'),
-    '#group' => 'cart-settings',
+  // Put fieldsets into vertical tabs
+  $form['cart-settings'] = array(
+    '#type' => 'vertical_tabs',
     '#attached' => array(
       'js' => array(
         'vertical-tabs' => drupal_get_path('module', 'uc_cart') . '/uc_cart.admin.js',
       ),
     ),
+  );
+
+  $form['general'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Basic settings'),
+    '#group' => 'cart-settings',
   );
 
   $panes = uc_cart_cart_pane_list(NULL);
@@ -60,13 +64,10 @@ function uc_cart_cart_settings_form($form, &$form_state) {
   );
 
   $form['general']['uc_minimum_subtotal'] = array(
-    '#type' => 'textfield',
+    '#type' => 'uc_price',
     '#title' => t('Minimum order subtotal'),
     '#description' => t('Customers will not be allowed to check out if the subtotal of items in their cart is less than this amount.'),
     '#default_value' => variable_get('uc_minimum_subtotal', 0),
-    '#size' => 16,
-    '#field_prefix' => variable_get('uc_sign_after_amount', FALSE) ? '' : variable_get('uc_currency_sign', '$'),
-    '#field_suffix' => variable_get('uc_sign_after_amount', FALSE) ? variable_get('uc_currency_sign', '$') : '',
   );
 
   $form['lifetime'] = array(
@@ -222,6 +223,8 @@ function uc_cart_cart_settings_form_validate($form, &$form_state) {
  * @ingroup forms
  */
 function uc_cart_checkout_settings_form($form, &$form_state) {
+
+  // Put fieldsets into vertical tabs
   $form['checkout-settings'] = array(
     '#type' => 'vertical_tabs',
     '#attached' => array(

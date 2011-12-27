@@ -81,9 +81,6 @@ function uc_reports_customers() {
     );
     $csv_rows[] = array($customer_number, $customer_order_name, $customer_name, $orders, $products, $customer['total'], $customer['average']);
   }
-  if (empty($rows)) {
-    $rows[] = array(array('data' => t('No customers found'), 'colspan' => count($header)));
-  }
   $csv_data = uc_reports_store_csv('uc_customers', $csv_rows);
 
   $build['report'] = array(
@@ -91,6 +88,7 @@ function uc_reports_customers() {
     '#header' => $header,
     '#rows' => $rows,
     '#attributes' => array('width' => '100%', 'class' => array('uc-sales-table')),
+    '#empty' => t('No customers found'),
   );
   $build['pager'] = array(
     '#theme' => 'pager',
@@ -127,6 +125,7 @@ function uc_reports_products() {
   $page_size = (isset($_GET['nopage'])) ? UC_REPORTS_MAX_RECORDS : variable_get('uc_reports_table_size', 30);
   $order_statuses = _uc_reports_order_statuses();
   $row_cell = $page * variable_get('uc_reports_table_size', 30) + 1;
+  $rows = array();
   $csv_rows = array();
 
   // Hard code the ignore of the product kit for this report.
@@ -252,9 +251,6 @@ function uc_reports_products() {
     }
     $row_cell++;
   }
-  if (empty($rows)) {
-    $rows[] = array(array('data' => t('No products found'), 'colspan' => count($header)));
-  }
   $csv_data = uc_reports_store_csv('uc_products', $csv_rows);
 
   $build['report'] = array(
@@ -262,6 +258,7 @@ function uc_reports_products() {
     '#header' => $header,
     '#rows' => $rows,
     '#attributes' => array('width' => '100%', 'class' => array('uc-sales-table')),
+    '#empty' => t('No products found'),
   );
   $build['pager'] = array(
     '#theme' => 'pager',
@@ -323,6 +320,7 @@ function uc_reports_products_custom() {
   $views_column = module_exists('statistics') && variable_get('statistics_count_content_views', FALSE);
   $page = isset($_GET['page']) ? intval($_GET['page']) : 0;
   $page_size = isset($_GET['nopage']) ? UC_REPORTS_MAX_RECORDS : variable_get('uc_reports_table_size', 30);
+  $rows = array();
   $csv_rows = array();
 
   // Hard code the ignore of the product kit for this report.
@@ -454,9 +452,6 @@ function uc_reports_products_custom() {
       $csv_rows[] = array($row_cell, $product_csv, $sold_csv, $revenue_csv, $gross_csv);
     }
   }
-  if (empty($rows)) {
-    $rows[] = array(array('data' => t('No products found'), 'colspan' => count($header)));
-  }
   $csv_data = uc_reports_store_csv('uc_products', $csv_rows);
 
   // Build the page output holding the form, table, and CSV export link.
@@ -466,6 +461,7 @@ function uc_reports_products_custom() {
     '#header' => $header,
     '#rows' => $rows,
     '#attributes' => array('width' => '100%', 'class' => array('uc-sales-table')),
+    '#empty' => t('No products found'),
   );
   $build['pager'] = array(
     '#theme' => 'pager',
@@ -576,6 +572,7 @@ function uc_reports_products_custom_form_submit($form, &$form_state) {
  *
  * Straight duplication of theme_table, but our row handling is different.
  *
+ * @see theme_table()
  * @ingroup themeable
  */
 function theme_uc_reports_product_table($variables) {
@@ -583,9 +580,12 @@ function theme_uc_reports_product_table($variables) {
   $rows = $variables['rows'];
   $attributes = $variables['attributes'];
   $caption = $variables['caption'];
+  $colgroups = $variables['colgroups'];
+  $sticky = $variables['sticky'];
+  $empty = $variables['empty'];
 
   // Add sticky headers, if applicable.
-  if (count($header)) {
+  if (count($header) && $sticky) {
     drupal_add_js('misc/tableheader.js');
     // Add 'sticky-enabled' class to the table to identify it for JS.
     // This is needed to target tables constructed by this function.
@@ -596,6 +596,55 @@ function theme_uc_reports_product_table($variables) {
 
   if (isset($caption)) {
     $output .= '<caption>' . $caption . "</caption>\n";
+  }
+
+  // Format the table columns:
+  if (count($colgroups)) {
+    foreach ($colgroups as $number => $colgroup) {
+      $attributes = array();
+
+      // Check if we're dealing with a simple or complex column
+      if (isset($colgroup['data'])) {
+        foreach ($colgroup as $key => $value) {
+          if ($key == 'data') {
+            $cols = $value;
+          }
+          else {
+            $attributes[$key] = $value;
+          }
+        }
+      }
+      else {
+        $cols = $colgroup;
+      }
+
+      // Build colgroup
+      if (is_array($cols) && count($cols)) {
+        $output .= ' <colgroup' . drupal_attributes($attributes) . '>';
+        $i = 0;
+        foreach ($cols as $col) {
+          $output .= ' <col' . drupal_attributes($col) . ' />';
+        }
+        $output .= " </colgroup>\n";
+      }
+      else {
+        $output .= ' <colgroup' . drupal_attributes($attributes) . " />\n";
+      }
+    }
+  }
+
+  // Add the 'empty' row message if available.
+  if (!count($rows) && $empty) {
+    $header_count = 0;
+    foreach ($header as $header_cell) {
+      if (is_array($header_cell)) {
+        $header_count += isset($header_cell['colspan']) ? $header_cell['colspan'] : 1;
+      }
+      else {
+        $header_count++;
+      }
+    }
+    $rows[] = array(array('data' => $empty, 'colspan' => $header_count, 'class' => array('empty', 'message')));
   }
 
   // Format the table header:
@@ -629,6 +678,7 @@ function theme_uc_reports_product_table($variables) {
           if ($key == 'data') {
             $cells = $value;
           }
+          // The following elseif clause is where we differ from theme_table()
           elseif ($key == 'primary') {
             $class = $flip[$class];
           }
@@ -642,6 +692,7 @@ function theme_uc_reports_product_table($variables) {
       }
       if (count($cells)) {
         // Add odd/even class
+        // We don't flip here like theme_table(), because we did that above.
         $attributes['class'][] = $class;
 
         // Build row

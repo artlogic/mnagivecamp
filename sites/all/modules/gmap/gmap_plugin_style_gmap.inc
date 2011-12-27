@@ -138,7 +138,10 @@ class gmap_plugin_style_gmap extends views_plugin_style {
 
     // Group the rows according to the grouping field, if specified.
     $sets = $this->render_grouping($this->view->result, $this->options['grouping']);
-
+    
+    // Let's make sure the individual fields are rendered 
+    $this->render_fields($this->view->result);
+    
     // Render each group separately and concatenate.  Plugins may override this
     // method if they wish some other way of handling grouping.
     $output = '';
@@ -210,7 +213,7 @@ class gmap_plugin_style_gmap extends views_plugin_style {
           
           $bubbletext = NULL;
           if ($this->options['bubbletextenabled'] && !empty($bubbletext_field_alias) && !empty($row->{$bubbletext_field_alias})) {
-            $bubbletext = $this->view->field[$this->options['bubbletextfield']]->advanced_render($row);
+            $bubbletext = $this->rendered_fields[$row_index][$this->options['bubbletextfield']];
           }
 
           $marker = array(

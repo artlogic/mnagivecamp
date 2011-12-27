@@ -79,16 +79,11 @@ function uc_cart_links_report() {
     );
   }
 
-  if (empty($rows)) {
-    $rows[] = array(
-      array('data' => t('No Cart Links have been tracked yet.'), 'colspan' => 3),
-    );
-  }
-
   $build['report'] = array(
     '#theme' => 'table',
     '#header' => $header,
     '#rows' => $rows,
+    '#empty' => t('No Cart Links have been tracked yet.'),
   );
   $build['pager'] = array(
     '#theme' => 'pager',
@@ -151,7 +146,7 @@ function uc_cart_links_creation_help() {
 
   $build['required'] = array(
     '#prefix' => '<p>',
-    '#markup' => t('The only required part of the <code><em>&lt;cart_link_content&gt;</em></code> is the "p" action, which must be immediately followed by a product node number.  For example, to add product node 23 to a cart, use the following:<blockquote><code>/cart/add/p23</code></blockquote>To use this on your site, simply create an HTML anchor tag referencing your Cart Link URL:<blockquote><code>&lt;a href="http://www.example.com/cart/add/p23"&gt;' . t('Link text.') . '&lt;/a&gt;</code></blockquote>'),
+    '#markup' => t('The only required part of the <code><em>&lt;cart_link_content&gt;</em></code> is the "p" action, which must be immediately followed by a product node number.  For example, to add product node 23 to a cart, use the following:<blockquote><code>/cart/add/p23</code></blockquote>To use this on your site, simply create an HTML anchor tag referencing your Cart Link URL:<blockquote><code>&lt;a href="http://www.example.com/cart/add/p23"&gt;Link text.&lt;/a&gt;</code></blockquote>'),
     '#suffix' => '</p>',
   );
 
@@ -159,11 +154,11 @@ function uc_cart_links_creation_help() {
   $rows = array(
     array('q', t('Specifies quantity of this product to add.'), t('A positive integer.')),
     array('a&lt;aid&gt;o&lt;oid&gt;', t('Specifies attribute/option for this product.'), t('aid is the integer attribute ID. oid is the integer option ID for radio, checkbox, and select options, or a url-escaped text string for textfield options.')),
-    array('s', t('Silent.  Supresses add-to-cart message for this product.
+    array('s', t('Silent.  Suppresses add-to-cart message for this product.
     (The add-to-cart message may be enabled on the <a href="!url">cart settings page</a>).', array('!url' => url('admin/store/settings/cart'))), t('None.')),
   );
   $build['args'] = array(
-    '#prefix' => t('Optional arguments for "p" allow you to control the quantity, set product attributes and options, and supress the default product action message normally shown when a product is added to a cart. These optional arguments are appended to the "p" action and separated with an underscore.  Allowed arguments for "p" are:'),
+    '#prefix' => t('Optional arguments for "p" allow you to control the quantity, set product attributes and options, and suppress the default product action message normally shown when a product is added to a cart. These optional arguments are appended to the "p" action and separated with an underscore.  Allowed arguments for "p" are:'),
     '#theme' => 'table',
     '#header' => $header,
     '#rows' => $rows,

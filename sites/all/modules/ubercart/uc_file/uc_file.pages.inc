@@ -30,9 +30,19 @@ define('UC_FILE_ERROR_HOOK_ERROR'             , 7);
 /**
  * Themes user file downloads page.
  *
- * @param $files
- *   Array of the files.
+ * @param $variables
+ *   An associative array containing:
+ *   - header: Table header array, in format required by theme_table().
+ *   - files: Associative array of downloadable files, containing:
+ *     - granted: Timestamp of file grant.
+ *     - link: URL of file.
+ *     - description: File name, as it should appear to user after downloading.
+ *     - accessed: Integer number of times file has been downloaded.
+ *     - download_limit: Integer limit on downloads.
+ *     - addresses: Integer number of IP addresses used.
+ *     - address_limit: Integer limit on IP addresses.
  *
+ * @see theme_table()
  * @ingroup themeable
  */
 function theme_uc_file_user_downloads($variables) {
@@ -51,11 +61,12 @@ function theme_uc_file_user_downloads($variables) {
     );
     $row++;
   }
-  if (empty($rows)) {
-    $rows[] = array(array('data' => t('No downloads found'), 'colspan' => 5));
-  }
 
-  $output  = theme('table', array('header' => $header, 'rows' => $rows));
+  $output = theme('table', array(
+    'header' => $header,
+    'rows' => $rows,
+    'empty' => t('No downloads found'),
+  ));
   $output .= theme('pager');
   $output .= '<div class="form-item"><p class="description">' .
   t('Once your download is finished, you must refresh the page to download again. (Provided you have permission)') .
@@ -150,11 +161,17 @@ function uc_file_user_downloads($account) {
     $row++;
   }
 
-  return array(
+  $build['downloads'] = array(
     '#theme' => 'uc_file_user_downloads',
     '#header' => $header,
     '#files' => $files,
   );
+
+  if (user_access('administer users')) {
+    $build['admin'] = drupal_get_form('uc_file_user_form', $account);
+  }
+
+  return $build;
 }
 
 /**
@@ -315,13 +332,16 @@ function _uc_file_download_transfer($file_user, $ip) {
   // Check if HTTP_RANGE is sent by browser (or download manager)
   $range = NULL;
   if (isset($_SERVER['HTTP_RANGE'])) {
-    list($size_unit, $range_orig) = explode('=', $_SERVER['HTTP_RANGE'], 2);
-
-    if ($size_unit == 'bytes') {
+    if (substr($_SERVER['HTTP_RANGE'], 0, 6) == 'bytes=') {
       // Multiple ranges could be specified at the same time,
       // but for simplicity only serve the first range
       // See http://tools.ietf.org/id/draft-ietf-http-range-retrieval-00.txt
-      list($range, $extra_ranges) = explode(',', $range_orig, 2);
+      list($range, $extra_ranges) = explode(',', substr($_SERVER['HTTP_RANGE'], 6), 2);
+    }
+    else {
+      drupal_add_http_header('Status', '416 Requested Range Not Satisfiable');
+      drupal_add_http_header('Content-Range', 'bytes */' . $size);
+      exit;
     }
   }
 
@@ -338,7 +358,7 @@ function _uc_file_download_transfer($file_user, $ip) {
   // Only send partial content header if downloading a piece of the file (IE
   // workaround).
   if ($seek_start > 0 || $seek_end < ($size - 1)) {
-    drupal_add_http_header('206 Partial Content');
+    drupal_add_http_header('Status', '206 Partial Content');
   }
 
   // Standard headers, including content-range and length
@@ -370,7 +390,7 @@ function _uc_file_download_transfer($file_user, $ip) {
     print(fread($fp, UC_FILE_BYTE_SIZE));
     flush();
 
-    // Supress PHP notice that occurs when output buffering isn't enabled.
+    // Suppress PHP notice that occurs when output buffering isn't enabled.
     // The ob_flush() is needed because if output buffering *is* enabled,
     // clicking on the file download link won't download anything if the buffer
     // isn't flushed.

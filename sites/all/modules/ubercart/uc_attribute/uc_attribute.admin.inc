@@ -22,31 +22,15 @@ function uc_attribute_admin() {
   $display_types = _uc_attribute_display_types();
 
   $query = db_select('uc_attributes', 'a')->extend('PagerDefault')->extend('TableSort')
+    ->fields('a', array('aid', 'name', 'label', 'required', 'ordering', 'display'))
     ->orderByHeader($header)
     ->limit(30);
-  $query->leftJoin('uc_attribute_options', 'ao', 'a.aid = ao.aid');
-
-  $query->fields('a', array(
-    'aid',
-    'name',
-    'label',
-    'required',
-    'ordering',
-    'display',
-  ));
-  $query->addExpression('COUNT(ao.oid)', 'options');
-
-  $query->groupBy('a.aid')
-    ->groupBy('a.name')
-    ->groupBy('a.label')
-    ->groupBy('a.required')
-    ->groupBy('a.ordering')
-    ->groupBy('a.display');
 
   $rows = array();
 
   $result = $query->execute();
   foreach ($result as $attr) {
+    $attr->options = db_query('SELECT COUNT(*) FROM {uc_attribute_options} WHERE aid = :aid', array(':aid' => $attr->aid))->fetchField();
     if (empty($attr->label)) {
       $attr->label = $attr->name;
     }
@@ -63,16 +47,11 @@ function uc_attribute_admin() {
     );
   }
 
-  if (count($rows) == 0) {
-    $rows[] = array(
-      array('data' => t('No product attributes have been added yet.'), 'colspan' => '9')
-    );
-  }
-
   $build['attributes'] = array(
     '#theme' => 'table',
     '#header' => $header,
     '#rows' => $rows,
+    '#empty' => t('No product attributes have been added yet.'),
   );
   $build['pager'] = array(
     '#theme' => 'pager',
@@ -325,6 +304,10 @@ function uc_attribute_options_form_submit($form, &$form_state) {
 /**
  * Formats an attribute and its options.
  *
+ * @param $variables
+ *   An associative array containing:
+ *   - form: A render element representing the form.
+ *
  * @ingroup themeable
  */
 function theme_uc_attribute_options_form($variables) {
@@ -332,9 +315,10 @@ function theme_uc_attribute_options_form($variables) {
 
   $header = array(t('Name'), t('Default cost'), t('Default price'), t('Default weight'), array('data' => t('List position'), 'sort' => 'asc'), array('data' => t('Operations'), 'colspan' => 2));
 
-  if (count(element_children($form['options'])) > 0) {
-    foreach (element_children($form['options']) as $oid) {
-      $row = array(
+  $rows = array();
+  foreach (element_children($form['options']) as $oid) {
+    $rows[] = array(
+      'data' => array(
         drupal_render($form['options'][$oid]['name']),
         drupal_render($form['options'][$oid]['cost']),
         drupal_render($form['options'][$oid]['price']),
@@ -342,23 +326,19 @@ function theme_uc_attribute_options_form($variables) {
         drupal_render($form['options'][$oid]['ordering']),
         drupal_render($form['options'][$oid]['edit']),
         drupal_render($form['options'][$oid]['delete']),
-      );
-
-      $rows[] = array(
-        'data' => $row,
-        'class' => array('draggable'),
-      );
-    }
-
-    drupal_add_tabledrag('uc-attribute-option-table', 'order', 'sibling', 'uc-attribute-option-table-ordering');
-  }
-  else {
-    $rows[] = array(
-      array('data' => t('No options for this attribute have been added yet.'), 'colspan' => 7),
+      ),
+      'class' => array('draggable'),
     );
   }
 
-  $output = theme('table', array('header' => $header, 'rows' => $rows, 'attributes' => array('id' => 'uc-attribute-option-table')));
+  drupal_add_tabledrag('uc-attribute-option-table', 'order', 'sibling', 'uc-attribute-option-table-ordering');
+
+  $output = theme('table', array(
+    'header' => $header,
+    'rows' => $rows,
+    'attributes' => array('id' => 'uc-attribute-option-table'),
+    'empty' => t('No options for this attribute have been added yet.'),
+  ));
 
   $output .= drupal_render_children($form);
 
@@ -421,16 +401,18 @@ function uc_attribute_option_form($form, &$form_state, $attribute, $option = NUL
     '#weight' => 8,
   );
   $form['adjustments']['cost'] = array(
-    '#type' => 'textfield',
+    '#type' => 'uc_price',
     '#title' => t('Cost'),
-    '#default_value' => uc_store_format_price_field_value($option->cost),
+    '#default_value' => $option->cost,
     '#weight' => 1,
+    '#allow_negative' => TRUE,
   );
   $form['adjustments']['price'] = array(
-    '#type' => 'textfield',
+    '#type' => 'uc_price',
     '#title' => t('Price'),
-    '#default_value' => uc_store_format_price_field_value($option->price),
+    '#default_value' => $option->price,
     '#weight' => 2,
+    '#allow_negative' => TRUE,
   );
   $form['adjustments']['weight'] = array(
     '#type' => 'textfield',
@@ -459,12 +441,6 @@ function uc_attribute_option_form($form, &$form_state, $attribute, $option = NUL
 function uc_attribute_option_form_validate($form, &$form_state) {
   $pattern = '/^-?\d*(\.\d*)?$/';
   $price_error = t('This must be in a valid number format. No commas and only one decimal point.');
-  if (!is_numeric($form_state['values']['cost']['#value']) && !preg_match($pattern, $form_state['values']['cost']['#value'])) {
-    form_set_error('cost', $price_error);
-  }
-  if (!is_numeric($form_state['values']['price']['#value']) && !preg_match($pattern, $form_state['values']['price']['#value'])) {
-    form_set_error('price', $price_error);
-  }
   if (!is_numeric($form_state['values']['weight']['#value']) && !preg_match($pattern, $form_state['values']['weight']['#value'])) {
     form_set_error('weight', $price_error);
   }
@@ -581,12 +557,8 @@ function uc_object_attributes_form($form, &$form_state, $object, $type, $view = 
   }
 
   $used_aids = array();
-  $used_labels = array();
   foreach ($attributes as $attribute) {
     $used_aids[] = $attribute->aid;
-    if (!empty($attribute->label)) {
-      $used_labels[] = $attribute->label;
-    }
   }
 
   if ($view == 'overview') {
@@ -601,6 +573,8 @@ function uc_object_attributes_form($form, &$form_state, $object, $type, $view = 
         $form['attributes'][$attribute->aid] = array(
           'remove' => array(
             '#type' => 'checkbox',
+            '#title' => t('Remove'),
+            '#title_display' => 'invisible',
             '#default_value' => 0,
           ),
           'name' => array(
@@ -608,6 +582,8 @@ function uc_object_attributes_form($form, &$form_state, $object, $type, $view = 
           ),
           'label' => array(
             '#type' => 'textfield',
+            '#title' => t('Label'),
+            '#title_display' => 'invisible',
             '#default_value' => empty($attribute->label) ? $attribute->name : $attribute->label,
             '#size' => 20,
           ),
@@ -616,16 +592,22 @@ function uc_object_attributes_form($form, &$form_state, $object, $type, $view = 
           ),
           'required' => array(
             '#type' => 'checkbox',
+            '#title' => t('Required'),
+            '#title_display' => 'invisible',
             '#default_value' => $attribute->required,
           ),
           'ordering' => array(
             '#type' => 'weight',
+            '#title' => t('List position'),
+            '#title_display' => 'invisible',
             '#delta' => 25,
             '#default_value' => $attribute->ordering,
             '#attributes' => array('class' => array('uc-attribute-table-ordering')),
           ),
           'display' => array(
             '#type' => 'select',
+            '#title' => t('Display'),
+            '#title_display' => 'invisible',
             '#default_value' => $attribute->display,
             '#options' => _uc_attribute_display_types(),
           ),
@@ -645,7 +627,7 @@ function uc_object_attributes_form($form, &$form_state, $object, $type, $view = 
     $unused_attributes = array();
     $result = db_query("SELECT a.aid, a.name, a.label FROM {uc_attributes} AS a LEFT JOIN {uc_attribute_options} AS ao ON a.aid = ao.aid GROUP BY a.aid, a.name, a.label ORDER BY a.name");
     foreach ($result as $attribute) {
-      if (!in_array($attribute->aid, $used_aids) && !in_array($attribute->label, $used_labels)) {
+      if (!in_array($attribute->aid, $used_aids)) {
         $unused_attributes[$attribute->aid] = $attribute->name;
       }
     }
@@ -685,6 +667,10 @@ function uc_object_attributes_form($form, &$form_state, $object, $type, $view = 
 /**
  * Displays the formatted attribute form.
  *
+ * @param $variables
+ *   An associative array containing:
+ *   - form: A render element representing the form.
+ *
  * @see uc_object_attributes_form()
  * @ingroup themeable
  */
@@ -696,9 +682,10 @@ function theme_uc_object_attributes_form($variables) {
   if ($form['view']['#value'] == 'overview') {
     $header = array(t('Remove'), t('Name'), t('Label'), t('Default'), t('Required'), t('List position'), t('Display'));
 
-    if (count(element_children($form['attributes'])) > 0) {
-      foreach (element_children($form['attributes']) as $aid) {
-        $row = array(
+    $rows = array();
+    foreach (element_children($form['attributes']) as $aid) {
+      $rows[] = array(
+        'data' => array(
           drupal_render($form['attributes'][$aid]['remove']),
           drupal_render($form['attributes'][$aid]['name']),
           drupal_render($form['attributes'][$aid]['label']),
@@ -706,32 +693,26 @@ function theme_uc_object_attributes_form($variables) {
           drupal_render($form['attributes'][$aid]['required']),
           drupal_render($form['attributes'][$aid]['ordering']),
           drupal_render($form['attributes'][$aid]['display']),
-        );
-
-        $rows[] = array(
-          'data' => $row,
-          'class' => array('draggable'),
-        );
-      }
-
-      drupal_add_tabledrag('uc-attribute-table', 'order', 'sibling', 'uc-attribute-table-ordering');
-    }
-    else {
-      if ($form['type']['#value'] == 'class') {
-        $path = url('admin/store/products/classes/' . $form['id']['#value'] . '/attributes/add');
-      }
-      elseif ($form['type']['#value'] == 'product') {
-        $path = url('node/' . $form['id']['#value'] . '/edit/attributes/add');
-      }
-
-      if ($path) {
-        $rows[] = array(
-          array('data' => t('You must first <a href="!url">add attributes to this !type</a>.', array('!url' => $path, '!type' => $form['type']['#value'])), 'colspan' => 6),
-        );
-      }
+        ),
+        'class' => array('draggable'),
+      );
     }
 
-    $output = theme('table', array('header' => $header, 'rows' => $rows, 'attributes' => array('id' => 'uc-attribute-table')));
+    drupal_add_tabledrag('uc-attribute-table', 'order', 'sibling', 'uc-attribute-table-ordering');
+
+    if ($form['type']['#value'] == 'class') {
+      $path = url('admin/store/products/classes/' . $form['id']['#value'] . '/attributes/add');
+    }
+    elseif ($form['type']['#value'] == 'product') {
+      $path = url('node/' . $form['id']['#value'] . '/edit/attributes/add');
+    }
+
+    $output = theme('table', array(
+      'header' => $header,
+      'rows' => $rows,
+      'attributes' => array('id' => 'uc-attribute-table'),
+      'empty' => t('You must first <a href="!url">add attributes to this !type</a>.', array('!url' => $path, '!type' => $form['type']['#value'])),
+    ));
   }
   else {
     $output = '<div class="uc-attributes-add-link">';
@@ -848,6 +829,9 @@ function uc_object_attributes_form_submit($form, &$form_state) {
   }
 
   if ($form_state['values']['type'] == 'product') {
+    if (module_exists('entitycache')) {
+      cache_clear_all($form_state['values']['id'], 'cache_entity_node');
+    }
     $form_state['redirect'] = 'node/' . $form_state['values']['id'] . '/edit/attributes';
   }
   else {
@@ -939,22 +923,32 @@ function uc_object_options_form($form, &$form_state, $object, $type) {
           '#title' => check_plain($option->name),
         );
         $form['attributes'][$aid]['options'][$oid]['cost'] = array(
-          '#type' => 'textfield',
-          '#default_value' => uc_store_format_price_field_value(is_null($option->cost) ? $option->default_cost : $option->cost),
+          '#type' => 'uc_price',
+          '#title' => t('Cost'),
+          '#title_display' => 'invisible',
+          '#default_value' => is_null($option->cost) ? $option->default_cost : $option->cost,
           '#size' => 6,
+          '#allow_negative' => TRUE,
         );
         $form['attributes'][$aid]['options'][$oid]['price'] = array(
-          '#type' => 'textfield',
-          '#default_value' => uc_store_format_price_field_value(is_null($option->price) ? $option->default_price : $option->price),
+          '#type' => 'uc_price',
+          '#title' => t('Price'),
+          '#title_display' => 'invisible',
+          '#default_value' => is_null($option->price) ? $option->default_price : $option->price,
           '#size' => 6,
+          '#allow_negative' => TRUE,
         );
         $form['attributes'][$aid]['options'][$oid]['weight'] = array(
           '#type' => 'textfield',
+          '#title' => t('Weight'),
+          '#title_display' => 'invisible',
           '#default_value' => is_null($option->weight) ? $option->default_weight : $option->weight,
           '#size' => 5,
         );
         $form['attributes'][$aid]['options'][$oid]['ordering'] = array(
           '#type' => 'weight',
+          '#title' => t('List position'),
+          '#title_display' => 'invisible',
           '#delta' => 50,
           '#default_value' => is_null($option->ordering) ? $option->default_ordering : $option->ordering,
           '#attributes' => array('class' => array('uc-attribute-option-table-ordering')),
@@ -963,6 +957,8 @@ function uc_object_options_form($form, &$form_state, $object, $type) {
 
       $form['attributes'][$aid]['default'] = array(
         '#type' => 'radios',
+        '#title' => t('Default'),
+        '#title_display' => 'invisible',
         '#options' => $options,
         '#default_value' => $attribute->default_option,
       );
@@ -995,6 +991,10 @@ function uc_object_options_form($form, &$form_state, $object, $type) {
 /**
  * Displays the option form.
  *
+ * @param $variables
+ *   An associative array containing:
+ *   - form: A render element representing the form.
+ *
  * @see uc_object_options_form()
  * @ingroup themeable
  */
@@ -1009,33 +1009,33 @@ function theme_uc_object_options_form($variables) {
   if (isset($form['attributes'])) {
     foreach (element_children($form['attributes']) as $key) {
       $rows = array();
-      if (element_children($form['attributes'][$key]['options'])) {
-        foreach (element_children($form['attributes'][$key]['options']) as $oid) {
-          $row = array(
+      foreach (element_children($form['attributes'][$key]['options']) as $oid) {
+        $rows[] = array(
+          'data' => array(
             drupal_render($form['attributes'][$key]['options'][$oid]['select']),
             drupal_render($form['attributes'][$key]['default'][$oid]),
             drupal_render($form['attributes'][$key]['options'][$oid]['cost']),
             drupal_render($form['attributes'][$key]['options'][$oid]['price']),
             drupal_render($form['attributes'][$key]['options'][$oid]['weight']),
             drupal_render($form['attributes'][$key]['options'][$oid]['ordering']),
-          );
-
-          $rows[] = array(
-            'data' => $row,
-            'class' => array('draggable'),
-          );
-        }
+          ),
+          'class' => array('draggable'),
+        );
       }
 
       $table_id = 'uc-attribute-option-table-' . $tables++;
-      if (!empty($rows)) {
-        drupal_add_tabledrag($table_id, 'order', 'sibling', 'uc-attribute-option-table-ordering');
-      }
-      else {
-        $rows[] = array(array('data' => t('This attribute does not have any options.'), 'colspan' => 6));
-      }
+      drupal_add_tabledrag($table_id, 'order', 'sibling', 'uc-attribute-option-table-ordering');
 
-      $output .= theme('table', array('header' => $header, 'rows' => $rows, 'attributes' => array('class' => array('product_attributes'), 'id' => $table_id), 'caption' => '<h2>' . drupal_render($form['attributes'][$key]['name']) . '</h2>'));
+      $output .= theme('table', array(
+        'header' => $header,
+        'rows' => $rows,
+        'attributes' => array(
+          'class' => array('product_attributes'),
+          'id' => $table_id,
+        ),
+        'caption' => '<h2>' . drupal_render($form['attributes'][$key]['name']) . '</h2>',
+        'empty' => t('This attribute does not have any options.'),
+      ));
     }
   }
 
@@ -1056,11 +1056,13 @@ function theme_uc_object_options_form($variables) {
 /**
  * Returns a themed set of attribute options for use in order displays.
  *
- * @param $element
- *   Structured array containing the set of attributes with each element
- *   having a key of attribute ID and the following keys:
- *     #attribute_name - Attribute name
- *     #options - Array of option names
+ * @param $variables
+ *   An associative array containing:
+ *   - attributes: An associative array containing the set of attributes,
+ *     with each element keyed by attribute ID:
+ *     - <aid>: An associative array containing:
+ *       - #attribute_name: Attribute name.
+ *       - #options: Array of option names.
  *
  * @return
  *   Themed set of attribute options.
@@ -1183,6 +1185,11 @@ function uc_object_options_form_submit($form, &$form_state) {
   }
 
   drupal_set_message(t('The !type options have been saved.', array('!type' => $form_state['values']['type'] == 'product' ? t('product') : t('product class'))));
+
+  if ($form_state['values']['type'] == 'product') {
+    // Clear the page and block caches.
+    cache_clear_all();
+  }
 }
 
 /**

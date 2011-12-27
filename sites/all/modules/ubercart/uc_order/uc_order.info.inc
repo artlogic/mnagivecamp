@@ -5,6 +5,9 @@
  * Entity Metadata hooks
  */
 
+/**
+ * Implements hook_entity_property_info().
+ */
 function uc_order_entity_property_info() {
   $address_info = uc_address_property_info();
 
@@ -32,6 +35,8 @@ function uc_order_entity_property_info() {
           'type' => 'node',
           'label' => t('Node'),
           'description' => t('The node representing the product.'),
+          'getter callback' => 'uc_order_product_node_property_get',
+          'setter callback' => 'uc_order_product_node_property_set',
         ),
         'title' => array(
           'type' => 'text',
@@ -165,27 +170,4 @@ function uc_order_entity_property_info() {
       ),
     ),
   );
-}
-
-/**
- * Callback for getting node properties.
- *
- * @see entity_metadata_node_entity_info_alter()
- */
-function uc_order_uc_order_get_properties($order, array $options, $name, $entity_type) {
-  switch ($name) {
-    case 'customer':
-      return $order->uid;
-  }
-}
-
-/**
- * Callback for setting node properties.
- *
- * @see entity_metadata_node_entity_info_alter()
- */
-function uc_order_uc_order_set_properties($order, $name, $value) {
-  if ($name == 'customer') {
-    $order->uid = $value;
-  }
 }

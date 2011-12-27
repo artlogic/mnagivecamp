@@ -23,10 +23,10 @@
 function uc_stock_help($path, $arg) {
   switch ($path) {
     case 'node/%/edit/stock':
-      return t('To keep track of stock for a particular product SKU, make sure it is marked as active and enter a stock value. When the stock level drops below the threshold value, you can be notified based on your stock settings.');
+      return '<p>' . t('To keep track of stock for a particular product SKU, make sure it is marked as active and enter a stock value. When the stock level drops below the threshold value, you can be notified based on your stock settings.') . '</p>';
     case 'admin/store/reports/stock':
     case 'admin/store/reports/stock/threshold':
-      return t('This is the list of product SKUs that are currently active. Stock levels below their threshold have highlighted rows. Toggle the checkbox below to alter which stock levels are shown.');
+      return '<p>' . t('This is the list of product SKUs that are currently active. Stock levels below their threshold have highlighted rows. Toggle the checkbox below to alter which stock levels are shown.') . '</p>';
   }
 }
 
@@ -127,7 +127,7 @@ function uc_stock_mail($key, &$message, $params) {
   switch ($key) {
     case 'threshold':
       $message['subject'] = $params['subject'];
-      $message['body'] = $params['body'];
+      $message['body'][] = $params['body'];
       break;
   }
 }
@@ -249,7 +249,7 @@ function _uc_stock_send_mail($order, $stock) {
   $account = user_load($order->uid);
   $token_filters = array('uc_order' => $order, 'user' => $account, 'uc_stock' => $stock);
 
-  $to = variable_get('uc_stock_threshold_notification_recipients', variable_get('uc_store_email', ini_get('sendmail_from')));
+  $to = variable_get('uc_stock_threshold_notification_recipients', uc_store_email());
   $to = explode(',', $to);
 
   $from = uc_store_email_from();
@@ -262,7 +262,7 @@ function _uc_stock_send_mail($order, $stock) {
 
   // Send to each recipient.
   foreach ($to as $email) {
-    $sent = drupal_mail('uc_stock', 'threshold', $email, uc_store_mail_recipient_language($email), array('body' => $body, 'subject' => $subject), $from);
+    $sent = drupal_mail('uc_stock', 'threshold', $email, uc_store_mail_recipient_language($email), array('body' => $body, 'subject' => $subject, 'order' => $order, 'stock' => $stock), $from);
 
     if (!$sent['result']) {
       watchdog('uc_stock', 'Attempt to e-mail @email concerning stock level on sku @sku failed.', array('@email' => $email, '@sku' => $stock->sku), WATCHDOG_ERROR);

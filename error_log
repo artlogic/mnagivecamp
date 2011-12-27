@@ -38,3 +38,109 @@
 [19-Oct-2011 16:25:44] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 45 bytes) in /home/michigan/public_html/drupal/includes/menu.inc on line 3619
 [19-Oct-2011 16:31:44] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 43 bytes) in /home/michigan/public_html/drupal/includes/menu.inc on line 3504
 [19-Oct-2011 16:33:11] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 4104 bytes) in /home/michigan/public_html/drupal/includes/menu.inc on line 2965
+[20-Oct-2011 19:23:48] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 88 bytes) in /home/michigan/public_html/drupal/includes/menu.inc on line 2646
+[20-Oct-2011 19:57:22] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 4104 bytes) in /home/michigan/public_html/drupal/includes/menu.inc on line 2965
+[21-Oct-2011 10:12:42] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 53 bytes) in /home/michigan/public_html/drupal/includes/menu.inc on line 3605
+[21-Oct-2011 10:15:29] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 35 bytes) in /home/michigan/public_html/drupal/includes/menu.inc on line 337
+[21-Oct-2011 10:16:15] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 4104 bytes) in /home/michigan/public_html/drupal/includes/menu.inc on line 2965
+[21-Oct-2011 10:51:21] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 43 bytes) in /home/michigan/public_html/drupal/includes/menu.inc on line 3504
+[21-Oct-2011 11:53:37] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 40 bytes) in /home/michigan/public_html/drupal/includes/menu.inc on line 3608
+[21-Oct-2011 13:09:00] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 49 bytes) in /home/michigan/public_html/drupal/includes/menu.inc on line 3604
+[21-Oct-2011 14:10:31] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 4104 bytes) in /home/michigan/public_html/drupal/sites/all/modules/views/includes/view.inc on line 1934
+[21-Oct-2011 14:11:02] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 40 bytes) in /home/michigan/public_html/drupal/sites/all/modules/views/includes/base.inc on line 138
+[21-Oct-2011 14:12:44] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 47 bytes) in /home/michigan/public_html/drupal/modules/taxonomy/taxonomy.module on line 167
+[21-Oct-2011 14:12:59] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 63344 bytes) in /home/michigan/public_html/drupal/includes/cache.inc on line 418
+[21-Oct-2011 14:13:47] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 19456 bytes) in /home/michigan/public_html/drupal/sites/all/modules/views/plugins/views_plugin_display_feed.inc on line 127
+[24-Oct-2011 12:30:53] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 19456 bytes) in /home/michigan/public_html/drupal/sites/all/modules/migrate/includes/migration.inc on line 522
+[24-Oct-2011 12:31:03] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 200095 bytes) in /home/michigan/public_html/drupal/includes/database/database.inc on line 2137
+[24-Oct-2011 13:04:06] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 44 bytes) in /home/michigan/public_html/drupal/includes/menu.inc on line 3611
+[24-Oct-2011 13:04:56] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 4104 bytes) in /home/michigan/public_html/drupal/includes/menu.inc on line 2965
+[24-Oct-2011 13:05:30] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 4104 bytes) in /home/michigan/public_html/drupal/includes/menu.inc on line 2965
+[24-Oct-2011 16:48:42] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 128 bytes) in /home/michigan/public_html/drupal/includes/menu.inc on line 3617
+[24-Oct-2011 16:49:38] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 4104 bytes) in /home/michigan/public_html/drupal/includes/menu.inc on line 2965
+[25-Oct-2011 15:01:33] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 28 bytes) in /home/michigan/public_html/drupal/sites/all/modules/migrate_extras/flag.inc on line 112
+[25-Oct-2011 15:01:34] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 4864 bytes) in /home/michigan/public_html/drupal/sites/all/modules/migrate/plugins/sources/xml.inc on line 133
+[25-Oct-2011 15:01:47] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 4864 bytes) in /home/michigan/public_html/drupal/sites/all/modules/migrate/includes/source.inc on line 130
+[25-Oct-2011 15:01:53] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 19456 bytes) in /home/michigan/public_html/drupal/sites/all/modules/migrate_extras/privatemsg.inc on line 122
+[25-Oct-2011 15:02:06] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 4864 bytes) in /home/michigan/public_html/drupal/sites/all/modules/migrate/includes/source.inc on line 147
+[25-Oct-2011 15:02:11] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 19456 bytes) in /home/michigan/public_html/drupal/sites/all/modules/migrate_extras/privatemsg.inc on line 122
+[25-Oct-2011 15:02:28] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 4864 bytes) in /home/michigan/public_html/drupal/sites/all/modules/migrate/includes/source.inc on line 147
+[25-Oct-2011 15:02:37] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 19456 bytes) in /home/michigan/public_html/drupal/sites/all/modules/migrate_extras/privatemsg.inc on line 122
+[25-Oct-2011 15:02:47] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 4864 bytes) in /home/michigan/public_html/drupal/sites/all/modules/migrate/includes/source.inc on line 147
+[25-Oct-2011 15:02:55] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 4864 bytes) in /home/michigan/public_html/drupal/sites/all/modules/migrate/plugins/sources/xml.inc on line 84
+[25-Oct-2011 15:03:11] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 4864 bytes) in /home/michigan/public_html/drupal/sites/all/modules/migrate_extras/media.inc on line 13
+[25-Oct-2011 15:05:44] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 4864 bytes) in /home/michigan/public_html/drupal/sites/all/modules/migrate/plugins/sources/xml.inc on line 84
+[25-Oct-2011 15:05:53] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 4864 bytes) in /home/michigan/public_html/drupal/sites/all/modules/migrate/plugins/sources/xml.inc on line 133
+[25-Oct-2011 15:06:01] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 19456 bytes) in /home/michigan/public_html/drupal/sites/all/modules/migrate_extras/privatemsg.inc on line 122
+[25-Oct-2011 15:06:14] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 19456 bytes) in /home/michigan/public_html/drupal/sites/all/modules/wordpress_migrate/wordpress_source.inc on line 180
+[25-Oct-2011 15:07:06] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 4864 bytes) in /home/michigan/public_html/drupal/sites/all/modules/migrate_extras/media.inc on line 13
+[25-Oct-2011 15:08:02] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 4864 bytes) in /home/michigan/public_html/drupal/sites/all/modules/migrate_extras/flag.inc on line 127
+[25-Oct-2011 15:08:06] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 19456 bytes) in /home/michigan/public_html/drupal/sites/all/modules/wordpress_migrate/wordpress_source.inc on line 180
+[17-Nov-2011 09:15:57] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 77824 bytes) in /home/michigan/public_html/drupal/sites/all/modules/wordpress_migrate/wordpress_item.inc on line 270
+[06-Dec-2011 15:20:10] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 32 bytes) in /home/michigan/public_html/drupal/includes/common.inc on line 7011
+[06-Dec-2011 15:56:27] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 20222 bytes) in /home/michigan/public_html/drupal/includes/cache.inc on line 418
+[08-Dec-2011 13:08:13] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 19456 bytes) in /home/michigan/public_html/drupal/sites/all/modules/migrate/plugins/destinations/file.inc on line 220
+[12-Dec-2011 16:38:27] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 20 bytes) in /home/michigan/public_html/drupal/includes/menu.inc on line 3607
+[12-Dec-2011 16:38:28] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 32045 bytes) in /home/michigan/public_html/drupal/includes/theme.inc on line 1248
+[12-Dec-2011 16:39:13] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 32041 bytes) in /home/michigan/public_html/drupal/includes/theme.inc on line 1248
+[12-Dec-2011 16:39:15] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 32013 bytes) in /home/michigan/public_html/drupal/includes/theme.inc on line 1248
+[12-Dec-2011 16:42:51] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 45 bytes) in /home/michigan/public_html/drupal/includes/menu.inc on line 3619
+[12-Dec-2011 16:42:53] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 31966 bytes) in /home/michigan/public_html/drupal/includes/theme.inc on line 1248
+[12-Dec-2011 16:59:02] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 44 bytes) in /home/michigan/public_html/drupal/includes/menu.inc on line 3614
+[12-Dec-2011 17:00:48] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 44 bytes) in /home/michigan/public_html/drupal/includes/menu.inc on line 3500
+[12-Dec-2011 17:03:08] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 43 bytes) in /home/michigan/public_html/drupal/includes/menu.inc on line 3612
+[12-Dec-2011 17:03:10] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 77824 bytes) in /home/michigan/public_html/drupal/sites/all/modules/ctools/includes/export-ui.inc on line 158
+[13-Dec-2011 13:49:29] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 41164 bytes) in /home/michigan/public_html/drupal/includes/common.inc on line 5677
+[13-Dec-2011 13:49:37] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 41164 bytes) in /home/michigan/public_html/drupal/includes/common.inc on line 5677
+[13-Dec-2011 15:48:30] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 41164 bytes) in /home/michigan/public_html/drupal/includes/common.inc on line 5677
+[14-Dec-2011 14:54:23] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 40961 bytes) in /home/michigan/public_html/drupal/includes/theme.inc on line 1246
+[14-Dec-2011 14:56:03] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 61441 bytes) in /home/michigan/public_html/drupal/modules/block/block.tpl.php on line 53
+[15-Dec-2011 16:38:30] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 19456 bytes) in /home/michigan/public_html/drupal/sites/all/modules/migrate/plugins/destinations/node.inc on line 78
+[15-Dec-2011 16:51:58] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 61441 bytes) in /home/michigan/public_html/drupal/modules/block/block.tpl.php on line 53
+[15-Dec-2011 19:40:29] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 83469 bytes) in /home/michigan/public_html/drupal/includes/cache.inc on line 418
+[15-Dec-2011 19:40:55] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 40961 bytes) in /home/michigan/public_html/drupal/includes/theme.inc on line 1246
+[15-Dec-2011 19:40:57] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 8192 bytes) in /home/michigan/public_html/drupal/includes/common.inc on line 6952
+[15-Dec-2011 20:28:17] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 23550 bytes) in /home/michigan/public_html/drupal/includes/common.inc on line 5641
+[15-Dec-2011 20:28:18] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 24221 bytes) in /home/michigan/public_html/drupal/includes/form.inc on line 3702
+[16-Dec-2011 07:59:43] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 40961 bytes) in /home/michigan/public_html/drupal/includes/theme.inc on line 1246
+[16-Dec-2011 09:12:09] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 51201 bytes) in /home/michigan/public_html/drupal/modules/block/block.tpl.php on line 53
+[16-Dec-2011 09:20:03] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 40961 bytes) in /home/michigan/public_html/drupal/includes/theme.inc on line 1246
+[16-Dec-2011 09:20:20] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 41150 bytes) in /home/michigan/public_html/drupal/includes/common.inc on line 5677
+[16-Dec-2011 09:20:23] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 40961 bytes) in /home/michigan/public_html/drupal/includes/theme.inc on line 1246
+[16-Dec-2011 09:20:29] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 51467 bytes) in /home/michigan/public_html/drupal/includes/theme.inc on line 1248
+[16-Dec-2011 09:21:00] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 51467 bytes) in /home/michigan/public_html/drupal/includes/theme.inc on line 1248
+[16-Dec-2011 09:21:03] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 41150 bytes) in /home/michigan/public_html/drupal/includes/common.inc on line 5677
+[16-Dec-2011 09:24:31] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 48 bytes) in /home/michigan/public_html/drupal/includes/menu.inc on line 3618
+[16-Dec-2011 09:25:24] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 187 bytes) in /home/michigan/public_html/drupal/includes/menu.inc on line 3599
+[16-Dec-2011 09:28:06] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 51 bytes) in /home/michigan/public_html/drupal/includes/menu.inc on line 3568
+[16-Dec-2011 09:32:23] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 51467 bytes) in /home/michigan/public_html/drupal/includes/theme.inc on line 1248
+[16-Dec-2011 09:32:36] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 51467 bytes) in /home/michigan/public_html/drupal/includes/theme.inc on line 1248
+[16-Dec-2011 09:59:56] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 40961 bytes) in /home/michigan/public_html/drupal/includes/theme.inc on line 1246
+[16-Dec-2011 10:38:16] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 35 bytes) in /home/michigan/public_html/drupal/includes/common.inc on line 7011
+[16-Dec-2011 10:40:51] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 35 bytes) in /home/michigan/public_html/drupal/includes/common.inc on line 7011
+[16-Dec-2011 10:41:01] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 35 bytes) in /home/michigan/public_html/drupal/includes/common.inc on line 7011
+[16-Dec-2011 10:41:37] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 4864 bytes) in /home/michigan/public_html/drupal/sites/all/modules/migrate_extras/user_relationships.inc on line 52
+[16-Dec-2011 10:41:56] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 4864 bytes) in /home/michigan/public_html/drupal/includes/bootstrap.inc on line 2913
+[16-Dec-2011 12:33:53] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 40961 bytes) in /home/michigan/public_html/drupal/includes/theme.inc on line 1246
+[16-Dec-2011 13:14:29] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 40961 bytes) in /home/michigan/public_html/drupal/includes/theme.inc on line 1246
+[16-Dec-2011 13:39:23] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 40961 bytes) in /home/michigan/public_html/drupal/includes/theme.inc on line 1246
+[19-Dec-2011 08:06:06] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 51201 bytes) in /home/michigan/public_html/drupal/modules/block/block.tpl.php on line 53
+[19-Dec-2011 08:06:22] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 51467 bytes) in /home/michigan/public_html/drupal/includes/theme.inc on line 1248
+[19-Dec-2011 13:51:57] PHP Fatal error:  Call to undefined function drupal_requirements_url() in /home/michigan/public_html/drupal/update.php on line 342
+[19-Dec-2011 13:52:15] PHP Fatal error:  Call to undefined function drupal_requirements_url() in /home/michigan/public_html/drupal/update.php on line 342
+[19-Dec-2011 13:57:51] PHP Fatal error:  Call to undefined function drupal_requirements_url() in /home/michigan/public_html/drupal/update.php on line 342
+[19-Dec-2011 17:20:36] PHP Fatal error:  Class 'views_handler_field_entity' not found in /home/michigan/public_html/drupal/sites/all/modules/views/modules/node/views_handler_field_node_link.inc on line 5
+[19-Dec-2011 17:27:45] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 19456 bytes) in /home/michigan/public_html/drupal/sites/all/modules/views/includes/admin.inc on line 3527
+[19-Dec-2011 17:33:28] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 19456 bytes) in /home/michigan/public_html/drupal/sites/all/modules/views/includes/admin.inc on line 3527
+[19-Dec-2011 17:41:36] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 77824 bytes) in /home/michigan/public_html/drupal/sites/all/modules/views/includes/admin.inc on line 3654
+[19-Dec-2011 17:42:25] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 77824 bytes) in /home/michigan/public_html/drupal/sites/all/modules/views/includes/admin.inc on line 3654
+[19-Dec-2011 17:43:22] PHP Fatal error:  Class 'views_handler_field_entity' not found in /home/michigan/public_html/drupal/sites/all/modules/views/modules/node/views_handler_field_node_link.inc on line 5
+[19-Dec-2011 17:43:55] PHP Fatal error:  Class 'views_handler_field_entity' not found in /home/michigan/public_html/drupal/sites/all/modules/views/modules/node/views_handler_field_node_link.inc on line 5
+[19-Dec-2011 17:44:51] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 61441 bytes) in /home/michigan/public_html/drupal/modules/system/region.tpl.php on line 31
+[19-Dec-2011 17:45:11] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 61441 bytes) in /home/michigan/public_html/drupal/modules/system/region.tpl.php on line 31
+[19-Dec-2011 17:45:24] PHP Fatal error:  Allowed memory size of 33554432 bytes exhausted (tried to allocate 81921 bytes) in /home/michigan/public_html/drupal/themes/bartik/templates/page.tpl.php on line 206
+[20-Dec-2011 09:58:49] PHP Fatal error:  Class 'views_handler_field_entity' not found in /home/michigan/public_html/drupal/sites/all/modules/views/modules/node/views_handler_field_node_link.inc on line 5
+[23-Dec-2011 16:21:03] PHP Fatal error:  Class 'views_handler_field_entity' not found in /home/michigan/public_html/drupal/sites/all/modules/views/modules/node/views_handler_field_node_link.inc on line 5
+[26-Dec-2011 12:32:37] PHP Fatal error:  Class 'views_handler_field_entity' not found in /home/michigan/public_html/drupal/sites/all/modules/views/modules/node/views_handler_field_node_link.inc on line 5
+[26-Dec-2011 12:32:37] PHP Fatal error:  Class 'views_handler_field_entity' not found in /home/michigan/public_html/drupal/sites/all/modules/views/modules/node/views_handler_field_node_link.inc on line 5
+[27-Dec-2011 08:11:08] PHP Fatal error:  Class 'views_handler_field_entity' not found in /home/michigan/public_html/drupal/sites/all/modules/views/modules/node/views_handler_field_node_link.inc on line 5

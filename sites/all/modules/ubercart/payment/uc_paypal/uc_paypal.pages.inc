@@ -43,7 +43,6 @@ function uc_paypal_ipn() {
   $payment_status = check_plain($_POST['payment_status']);
   $payment_amount = check_plain($_POST['mc_gross']);
   $payment_currency = check_plain($_POST['mc_currency']);
-  $payment_fee = check_plain($_POST['mc_fee']);
   $receiver_email = check_plain($_POST['business']);
   if ($receiver_email == '') {
     $receiver_email = check_plain($_POST['receiver_email']);
@@ -54,7 +53,7 @@ function uc_paypal_ipn() {
 
   // Express Checkout IPNs may not have the WPS email stored. But if it is,
   // make sure that the right account is being paid.
-  $uc_paypal_wps_email = variable_get('uc_paypal_wps_email', '');
+  $uc_paypal_wps_email = trim(variable_get('uc_paypal_wps_email', ''));
   if (!empty($uc_paypal_wps_email) && drupal_strtolower($receiver_email) != drupal_strtolower($uc_paypal_wps_email)) {
     watchdog('uc_paypal', 'IPN for a different PayPal account attempted.', array(), WATCHDOG_ERROR);
     return;
@@ -270,39 +269,13 @@ function uc_paypal_ec_review_form($form, &$form_state, $order) {
     $result = uc_checkout_pane_quotes('view', $order, NULL);
     $form['panes']['quotes'] = array(
       '#type' => 'fieldset',
-      '#title' => t('Calculate shipping'),
+      '#title' => t('Shipping cost'),
       '#collapsible' => FALSE,
     );
     $form['panes']['quotes'] += $result['contents'];
-    $form['panes']['quotes']['quote_button']['#value'] = t('Click to refresh shipping options');
+    unset($form['panes']['quotes']['quote_button']);
 
-    $form['panes']['quotes']['quote_div'] = array(
-      '#markup' => '<div id="quote"></div>',
-    );
-
-    // Fake the checkout form delivery information.
-    $form['delivery_first_name'] = array('#type' => 'hidden', '#value' => $order->delivery_first_name);
-    $form['delivery_last_name'] = array('#type' => 'hidden', '#value' => $order->delivery_last_name);
-    $form['delivery_company'] = array('#type' => 'hidden', '#value' => $order->delivery_company);
-    $form['delivery_street1'] = array('#type' => 'hidden', '#value' => $order->delivery_street1);
-    $form['delivery_street2'] = array('#type' => 'hidden', '#value' => $order->delivery_street2);
-    $form['delivery_city'] = array('#type' => 'hidden', '#value' => $order->delivery_city);
-    $form['delivery_postal_code'] = array('#type' => 'hidden', '#value' => $order->delivery_postal_code);
-    $form['delivery_phone'] = array('#type' => 'hidden', '#value' => $order->delivery_phone);
-    $form['delivery_zone'] = array(
-      '#type' => 'select',
-      '#options' => drupal_map_assoc(array($order->delivery_zone)),
-      '#default_value' => $order->delivery_zone,
-      '#attributes' => array('style' => 'display: none;'),
-    );
-    $form['delivery_country'] = array(
-      '#type' => 'select',
-      '#options' => drupal_map_assoc(array($order->delivery_country)),
-      '#default_value' => $order->delivery_country,
-      '#attributes' => array('style' => 'display: none;'),
-    );
-
-    $form['shippable'] = array('#type' => 'hidden', '#value' => 'true');
+    $form['shippable'] = array('#type' => 'value', '#value' => 'true');
   }
 
   if (variable_get('uc_paypal_ec_review_company', TRUE)) {
@@ -345,26 +318,26 @@ function uc_paypal_ec_review_form($form, &$form_state, $order) {
 }
 
 function uc_paypal_ec_review_form_validate($form, &$form_state) {
-  if (isset($form_state['values']['shippable']) && $form_state['values']['shippable'] == 'true') {
-    if (!isset($_POST['quote-option'])) {
-      form_set_error('shipping', t('You must calculate and select a shipping option.'));
-    }
+  if (!empty($form_state['values']['shippable']) && empty($form_state['values']['quotes']['quote_option'])) {
+    form_set_error('shipping', t('You must calculate and select a shipping option.'));
   }
 }
 
 function uc_paypal_ec_review_form_submit($form, &$form_state) {
   $order = uc_order_load($_SESSION['cart_order']);
 
-  if (isset($form_state['values']['shippable']) && $form_state['values']['shippable'] == 'true') {
-    $method_accessorials= split("---", isset($_POST['quote-option']) ? strval($_POST['quote-option']) : 0);
-    $order->quote['method'] = $method_accessorials[0];
-    $order->quote['accessorials'] = $method_accessorials[1];
-    $order->quote['rate'] = $_POST['rate'][isset($_POST['quote-option']) ? strval($_POST['quote-option']) : 0];
+  if (!empty($form_state['values']['shippable'])) {
+    $quote_option = explode('---', $form_state['values']['quotes']['quote_option']);
+    $order->quote['method'] = $quote_option[0];
+    $order->quote['accessorials'] = $quote_option[1];
+    $methods = uc_quote_methods();
+    $method = $methods[$quote_option[0]];
 
-    $order->quote['quote_form'] = rawurldecode($_POST['quote-form']);
-    $methods = module_invoke_all('uc_shipping_method');
-    $method = $methods[$order->quote['method']];
-    $label = is_null($_POST['quote-option']) ? t('Error calculating shipping') : $method['quote']['accessorials'][$order->quote['accessorials']];
+    $label = $method['quote']['accessorials'][$quote_option[1]];
+
+    $quote_option = $form_state['values']['quotes']['quote_option'];
+    $order->quote['rate'] = $form_state['values']['quotes'][$quote_option]['rate'];
+
     $result = db_query("SELECT line_item_id FROM {uc_order_line_items} WHERE order_id = :id AND type = :type", array(':id' => $order->order_id, ':type' => 'shipping'));
     if ($lid = $result->fetchField()) {
       uc_order_update_line_item($lid, $label, $order->quote['rate']);
@@ -448,7 +421,7 @@ function uc_paypal_complete($order) {
   // user tried to adjust the order on this side while at PayPal. If it was a
   // legitimate checkout, the IPN will still come in from PayPal so the order
   // gets processed correctly. We'll leave an ambiguous message just in case.
-  if (intval($_SESSION['cart_order']) != $order->order_id) {
+  if (!isset($_SESSION['cart_order']) || intval($_SESSION['cart_order']) != $order->order_id) {
     drupal_set_message(t('Thank you for your order! PayPal will notify us once your payment has been processed.'));
     drupal_goto('cart');
   }
