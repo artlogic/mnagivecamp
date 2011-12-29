@@ -445,6 +445,8 @@ ini_set('session.cookie_lifetime', 2000000);
  */
 # $conf['allow_authorize_operations'] = FALSE;
 
+ini_set('memory_limit', '128M');
+
 $databases['default']['default'] = array(
 'driver' => 'mysql',
 #'database' => 'drupal',
