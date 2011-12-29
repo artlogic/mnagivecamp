@@ -4,6 +4,13 @@ var Drupal = Drupal || { 'settings': {}, 'behaviors': {}, 'locale': {} };
 // Allow other JavaScript libraries to use $.
 jQuery.noConflict();
 
+jQuery(document).ready(function(){
+  jQuery("ul.menu:first > li.expanded > a").click(function(event){
+    event.preventDefault();
+    return false;
+  });
+});
+
 (function ($) {
 
 /**
